@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 const GRID = 8
 const styles = {
@@ -39,14 +39,20 @@ const styles = {
 }
 
 export default function AcessoNegado() {
+  const [searchParams] = useSearchParams()
+  const from = searchParams.get('from')
+  const isFranchisor = from === 'franchisor'
+  const dashboardPath = isFranchisor ? '/franchisor/dashboard' : '/admin/dashboard'
+  const dashboardLabel = isFranchisor ? 'Voltar ao Dashboard (Franqueador)' : 'Voltar ao Dashboard'
+
   return (
     <div style={styles.wrap}>
       <h1 style={styles.titulo}>Acesso Negado</h1>
       <p style={styles.texto}>
         Você não tem permissão para acessar este recurso.
       </p>
-      <Link to="/admin/dashboard" style={styles.btn}>
-        Voltar ao Dashboard
+      <Link to={dashboardPath} style={styles.btn}>
+        {dashboardLabel}
       </Link>
     </div>
   )

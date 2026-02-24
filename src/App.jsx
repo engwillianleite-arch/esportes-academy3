@@ -30,10 +30,24 @@ import InadimplenciaGlobal from './pages/admin/InadimplenciaGlobal'
 import ListaTemplates from './pages/admin/ListaTemplates'
 import DetalheTemplate from './pages/admin/DetalheTemplate'
 import RelatoriosEstrategicos from './pages/admin/RelatoriosEstrategicos'
+import Exports from './pages/admin/Exports'
+import ExportNew from './pages/admin/ExportNew'
+import ExportDetail from './pages/admin/ExportDetail'
+import FranchisorDashboard from './pages/franchisor/FranchisorDashboard'
+import ListaEscolasFranqueador from './pages/franchisor/ListaEscolasFranqueador'
+import DetalheEscolaFranqueador from './pages/franchisor/DetalheEscolaFranqueador'
+import FranchisorReports from './pages/franchisor/FranchisorReports'
+import Perfil from './pages/Perfil'
 
 export default function App() {
   return (
     <Routes>
+      {/* Portal Franqueador */}
+      <Route path="/franchisor/dashboard" element={<FranchisorDashboard />} />
+      <Route path="/franchisor/schools" element={<ListaEscolasFranqueador />} />
+      <Route path="/franchisor/schools/:school_id" element={<DetalheEscolaFranqueador />} />
+      <Route path="/franchisor/reports" element={<FranchisorReports />} />
+
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="/admin/settings" element={<ConfiguracoesSistema />} />
       <Route path="/admin/templates" element={<ListaTemplates />} />
@@ -51,6 +65,9 @@ export default function App() {
       <Route path="/admin/finance/global" element={<FinanceiroGlobal />} />
       <Route path="/admin/finance/delinquency" element={<InadimplenciaGlobal />} />
       <Route path="/admin/reports/strategic" element={<RelatoriosEstrategicos />} />
+      <Route path="/admin/exports" element={<Exports />} />
+      <Route path="/admin/exports/new" element={<ExportNew />} />
+      <Route path="/admin/exports/:export_id" element={<ExportDetail />} />
       <Route path="/admin/franqueadores" element={<ListaFranqueadores />} />
       <Route path="/admin/escolas" element={<ListaEscolas />} />
       <Route path="/admin/franqueadores/novo" element={<NovoFranqueador />} />
@@ -68,6 +85,7 @@ export default function App() {
       <Route path="/admin/escolas/:id" element={<DetalheEscola />} />
       <Route path="/admin/escolas/:id/status" element={<AlterarStatusEscola />} />
       <Route path="/acesso-negado" element={<AcessoNegado />} />
+      <Route path="/perfil" element={<Perfil />} />
       <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
     </Routes>

@@ -251,6 +251,15 @@ function AdminSidebar() {
         >
           Relatórios Estratégicos
         </Link>
+        <Link
+          to="/admin/exports"
+          style={{
+            ...styles.link,
+            ...(path === '/admin/exports' || path.startsWith('/admin/exports/') ? styles.linkActive : {}),
+          }}
+        >
+          Exportações
+        </Link>
       </div>
 
       <div>

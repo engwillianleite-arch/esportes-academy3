@@ -298,15 +298,24 @@ export default function RelatoriosEstrategicos() {
             <p style={styles.subtitulo}>KPIs globais da plataforma</p>
             <p style={styles.aviso}>KPIs consolidados por período selecionado.</p>
           </div>
-          <button
-            type="button"
-            style={styles.btnPrimario}
-            className="btn-hover"
-            onClick={() => fetchData()}
-            disabled={loading}
-          >
-            Atualizar
-          </button>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <Link
+              to={`/admin/exports/new?type=kpis_summary&period=${period}&from=${queryFrom}&to=${queryTo}${franchisorId ? `&franchisor_id=${franchisorId}` : ''}${schoolId ? `&school_id=${schoolId}` : ''}${schoolStatus !== 'todos' ? `&school_status=${schoolStatus}` : ''}`}
+              style={styles.btnSecundario}
+              className="btn-hover"
+            >
+              Exportar
+            </Link>
+            <button
+              type="button"
+              style={styles.btnPrimario}
+              className="btn-hover"
+              onClick={() => fetchData()}
+              disabled={loading}
+            >
+              Atualizar
+            </button>
+          </div>
         </div>
 
         {/* Filtros globais */}
@@ -680,6 +689,18 @@ const styles = {
     fontWeight: 600,
     cursor: 'pointer',
     boxShadow: '0 2px 4px rgba(44, 110, 242, 0.3)',
+  },
+  btnSecundario: {
+    background: 'transparent',
+    color: 'var(--grafite-tecnico)',
+    border: '1px solid #ccc',
+    padding: `${GRID * 2}px ${GRID * 3}px`,
+    borderRadius: 'var(--radius)',
+    fontSize: 14,
+    fontWeight: 500,
+    cursor: 'pointer',
+    textDecoration: 'none',
+    display: 'inline-block',
   },
   filtrosCard: {
     background: 'var(--branco-luz)',
