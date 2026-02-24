@@ -251,6 +251,15 @@ function AdminSidebar() {
         >
           Financeiro Global
         </Link>
+        <Link
+          to="/admin/finance/delinquency"
+          style={{
+            ...styles.link,
+            ...(path === '/admin/finance/delinquency' ? styles.linkActive : {}),
+          }}
+        >
+          Inadimplência
+        </Link>
       </div>
 
       <div>

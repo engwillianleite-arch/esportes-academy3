@@ -26,6 +26,7 @@ import DetalheTicket from './pages/admin/DetalheTicket'
 import CategoriasSuporte from './pages/admin/CategoriasSuporte'
 import ConfiguracoesSistema from './pages/admin/ConfiguracoesSistema'
 import FinanceiroGlobal from './pages/admin/FinanceiroGlobal'
+import InadimplenciaGlobal from './pages/admin/InadimplenciaGlobal'
 import ListaTemplates from './pages/admin/ListaTemplates'
 import DetalheTemplate from './pages/admin/DetalheTemplate'
 
@@ -47,6 +48,7 @@ export default function App() {
       <Route path="/admin/subscriptions" element={<ListaAssinaturas />} />
       <Route path="/admin/subscriptions/:subscriptionId" element={<DetalheAssinatura />} />
       <Route path="/admin/finance/global" element={<FinanceiroGlobal />} />
+      <Route path="/admin/finance/delinquency" element={<InadimplenciaGlobal />} />
       <Route path="/admin/franqueadores" element={<ListaFranqueadores />} />
       <Route path="/admin/escolas" element={<ListaEscolas />} />
       <Route path="/admin/franqueadores/novo" element={<NovoFranqueador />} />
