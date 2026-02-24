@@ -1,0 +1,76 @@
+/* Design system — Esportes Academy Admin */
+:root {
+  --azul-arena: #2C6EF2;
+  --verde-patrocinio: #4CCB8A;
+  --cinza-arquibancada: #F5F5F7;
+  --grafite-tecnico: #3A3A3C;
+  --branco-luz: #FFFFFF;
+  --grid: 8px;
+  --radius: 12px;
+  --shadow: 0 2px 8px rgba(58, 58, 60, 0.08);
+  --shadow-hover: 0 4px 16px rgba(58, 58, 60, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--cinza-arquibancada);
+  color: var(--grafite-tecnico);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Utilitários de grid 8px */
+.gap-8 { gap: calc(var(--grid) * 1); }
+.gap-16 { gap: calc(var(--grid) * 2); }
+.gap-24 { gap: calc(var(--grid) * 3); }
+.gap-32 { gap: calc(var(--grid) * 4); }
+
+/* Hover states e transições */
+button.btn-hover {
+  transition: filter 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+button.btn-hover:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+button.btn-hover:active {
+  transform: translateY(0);
+}
+input:focus, select:focus {
+  border-color: var(--azul-arena);
+  box-shadow: 0 0 0 2px rgba(44, 110, 242, 0.2);
+}
+input, select {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+[data-dropdown-item]:hover {
+  background: var(--cinza-arquibancada);
+}
+
+/* Responsivo: KPIs e layout */
+@media (max-width: 1024px) {
+  .admin-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .admin-grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+  .admin-mapa-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-kpi-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
