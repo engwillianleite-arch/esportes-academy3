@@ -296,11 +296,20 @@ export default function FranchisorLayout({ children, pageTitle, breadcrumb = [] 
   }, [])
 
   const handleSelectSchool = (id) => {
+    // Na tela de detalhe (/franchisor/schools/:school_id), trocar escola = ir para o detalhe da nova escola
+    if (schoolIdFromPath) {
+      if (id) {
+        navigate(`/franchisor/schools/${id}`, { replace: true })
+        return
+      }
+      navigate('/franchisor/schools', { replace: true })
+      return
+    }
     const next = new URLSearchParams(searchParams)
     if (id) next.set('school_id', id)
     else next.delete('school_id')
     setSearchParams(next, { replace: true })
-    if (!id && schoolIdFromPath) navigate('/franchisor/dashboard', { replace: true })
+    if (!id) navigate('/franchisor/dashboard', { replace: true })
   }
 
   return (

@@ -37,6 +37,7 @@ import FranchisorDashboard from './pages/franchisor/FranchisorDashboard'
 import ListaEscolasFranqueador from './pages/franchisor/ListaEscolasFranqueador'
 import DetalheEscolaFranqueador from './pages/franchisor/DetalheEscolaFranqueador'
 import FranchisorReports from './pages/franchisor/FranchisorReports'
+import FranchisorFinance from './pages/franchisor/FranchisorFinance'
 import Perfil from './pages/Perfil'
 
 export default function App() {
@@ -47,6 +48,7 @@ export default function App() {
       <Route path="/franchisor/schools" element={<ListaEscolasFranqueador />} />
       <Route path="/franchisor/schools/:school_id" element={<DetalheEscolaFranqueador />} />
       <Route path="/franchisor/reports" element={<FranchisorReports />} />
+      <Route path="/franchisor/finance" element={<FranchisorFinance />} />
 
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="/admin/settings" element={<ConfiguracoesSistema />} />

@@ -277,9 +277,10 @@ function SkeletonRow() {
   )
 }
 
-function RowActions({ schoolId }) {
+function RowActions({ schoolId, searchParams }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
+  const returnTo = `/franchisor/schools?${(searchParams || new URLSearchParams()).toString()}`
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -307,6 +308,7 @@ function RowActions({ schoolId }) {
         <div style={styles.dropdown} role="menu">
           <Link
             to={`/franchisor/schools/${schoolId}`}
+            state={{ returnTo }}
             style={styles.dropdownItem}
             role="menuitem"
             onClick={(e) => e.stopPropagation()}
@@ -560,7 +562,11 @@ export default function ListaEscolasFranqueador() {
                           ...styles.rowClickable,
                           ...(schoolIdSwitcher === s.school_id ? styles.rowHighlight : {}),
                         }}
-                        onClick={() => navigate(`/franchisor/schools/${s.school_id}`)}
+                        onClick={() =>
+                          navigate(`/franchisor/schools/${s.school_id}`, {
+                            state: { returnTo: `/franchisor/schools?${searchParams.toString()}` },
+                          })
+                        }
                       >
                         <td style={styles.td}>{s.school_name}</td>
                         <td style={styles.td}>
@@ -570,7 +576,7 @@ export default function ListaEscolasFranqueador() {
                           <StatusBadge status={s.status} />
                         </td>
                         <td style={styles.td} onClick={(e) => e.stopPropagation()}>
-                          <RowActions schoolId={s.school_id} />
+                          <RowActions schoolId={s.school_id} searchParams={searchParams} />
                         </td>
                       </tr>
                     ))}
