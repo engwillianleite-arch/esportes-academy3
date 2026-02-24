@@ -241,6 +241,19 @@ function AdminSidebar() {
       </div>
 
       <div>
+        <div style={styles.groupLabel}>Relatórios</div>
+        <Link
+          to="/admin/reports/strategic"
+          style={{
+            ...styles.link,
+            ...(path === '/admin/reports/strategic' ? styles.linkActive : {}),
+          }}
+        >
+          Relatórios Estratégicos
+        </Link>
+      </div>
+
+      <div>
         <div style={styles.groupLabel}>Financeiro</div>
         <Link
           to="/admin/finance/global"

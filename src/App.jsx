@@ -29,6 +29,7 @@ import FinanceiroGlobal from './pages/admin/FinanceiroGlobal'
 import InadimplenciaGlobal from './pages/admin/InadimplenciaGlobal'
 import ListaTemplates from './pages/admin/ListaTemplates'
 import DetalheTemplate from './pages/admin/DetalheTemplate'
+import RelatoriosEstrategicos from './pages/admin/RelatoriosEstrategicos'
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
       <Route path="/admin/subscriptions/:subscriptionId" element={<DetalheAssinatura />} />
       <Route path="/admin/finance/global" element={<FinanceiroGlobal />} />
       <Route path="/admin/finance/delinquency" element={<InadimplenciaGlobal />} />
+      <Route path="/admin/reports/strategic" element={<RelatoriosEstrategicos />} />
       <Route path="/admin/franqueadores" element={<ListaFranqueadores />} />
       <Route path="/admin/escolas" element={<ListaEscolas />} />
       <Route path="/admin/franqueadores/novo" element={<NovoFranqueador />} />

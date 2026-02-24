@@ -490,7 +490,8 @@ export default function RelatoriosEstrategicos() {
               </div>
             )}
 
-            {!loading && !isEmpty && (
+            {/* Rankings e distribuição (sempre visíveis; skeleton quando loading) */}
+            {(loading || !isEmpty) && (
               <>
                 {/* Top Franqueadores */}
                 <div style={styles.secao}>
