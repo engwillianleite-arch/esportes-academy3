@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useSearchParams, useParams, useNavigate } from 'react-router-dom'
+import { Link, useSearchParams, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { getFranchisorSchools } from '../api/franchisorPortal'
 
 const GRID = 8
@@ -280,9 +280,14 @@ export default function FranchisorLayout({ children, pageTitle, breadcrumb = [] 
   const [searchParams, setSearchParams] = useSearchParams()
   const params = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const schoolIdFromPath = params.school_id || null
+  const isOnboardingPath = location.pathname.includes('/onboarding')
   const schoolIdFromQuery = searchParams.get('school_id') || null
-  const schoolId = schoolIdFromQuery || schoolIdFromPath
+  const rawSchoolId = schoolIdFromQuery || schoolIdFromPath
+  // Na tela de Usuários do Franqueador, fixar em "Todas as escolas" (gestão é do franqueador).
+  const isUsersPage = location.pathname === '/franchisor/users'
+  const schoolId = isUsersPage ? null : rawSchoolId
   const [schools, setSchools] = useState([])
   const [schoolsLoading, setSchoolsLoading] = useState(true)
 
@@ -296,10 +301,11 @@ export default function FranchisorLayout({ children, pageTitle, breadcrumb = [] 
   }, [])
 
   const handleSelectSchool = (id) => {
-    // Na tela de detalhe (/franchisor/schools/:school_id), trocar escola = ir para o detalhe da nova escola
+    if (isUsersPage) return // Usuários: switcher fixo em "Todas as escolas"
+    // Na tela de detalhe ou onboarding, trocar escola = ir para a mesma tela da nova escola
     if (schoolIdFromPath) {
       if (id) {
-        navigate(`/franchisor/schools/${id}`, { replace: true })
+        navigate(isOnboardingPath ? `/franchisor/schools/${id}/onboarding` : `/franchisor/schools/${id}`, { replace: true })
         return
       }
       navigate('/franchisor/schools', { replace: true })

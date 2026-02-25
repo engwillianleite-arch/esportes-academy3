@@ -30,6 +30,12 @@ const IconArrowLeft = () => (
     <path d="M19 12H5M12 19l-7-7 7-7" />
   </svg>
 )
+const IconEdit = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </svg>
+)
 
 const styles = {
   section: { marginBottom: GRID * 4 },
@@ -317,16 +323,35 @@ export default function DetalheEscolaFranqueador() {
               <StatusBadge status={school.status} />
             </div>
             <div style={styles.btnGroup}>
+              {statusLower === 'pendente' && (
+                <Link
+                  to={`/franchisor/schools/${school_id}/onboarding`}
+                  state={{ returnTo: `/franchisor/schools/${school_id}` }}
+                  style={styles.btnPrimary}
+                  className="btn-hover"
+                >
+                  Onboarding / Pendências
+                </Link>
+              )}
               {canOpenPortal && (
                 <Link
                   to={`/school?school_id=${school_id}`}
-                  style={styles.btnPrimary}
+                  style={statusLower === 'pendente' ? styles.btnSecondary : styles.btnPrimary}
                   className="btn-hover"
                 >
                   Abrir Portal da Escola
                   <IconExternal />
                 </Link>
               )}
+              <Link
+                to={`/franchisor/schools/${school_id}/edit`}
+                state={{ returnTo: `/franchisor/schools/${school_id}` }}
+                style={styles.btnSecondary}
+                className="btn-hover"
+              >
+                <IconEdit />
+                Editar
+              </Link>
               {isSuspended && school.can_access_school_portal && (
                 <span style={{ fontSize: 13, color: 'var(--grafite-tecnico)', opacity: 0.8 }}>
                   Escola suspensa — acesso ao portal bloqueado
@@ -421,6 +446,14 @@ export default function DetalheEscolaFranqueador() {
               Atalhos
             </h2>
             <div style={styles.atalhosGrid}>
+              <Link
+                to={`/franchisor/schools/${school_id}/onboarding`}
+                state={{ returnTo: `/franchisor/schools/${school_id}` }}
+                style={styles.atalhoLink}
+                className="btn-hover"
+              >
+                {statusLower === 'pendente' ? 'Onboarding / Pendências' : 'Ver onboarding'}
+              </Link>
               {canOpenPortal && (
                 <Link
                   to={`/school?school_id=${school_id}`}

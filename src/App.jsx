@@ -36,8 +36,19 @@ import ExportDetail from './pages/admin/ExportDetail'
 import FranchisorDashboard from './pages/franchisor/FranchisorDashboard'
 import ListaEscolasFranqueador from './pages/franchisor/ListaEscolasFranqueador'
 import DetalheEscolaFranqueador from './pages/franchisor/DetalheEscolaFranqueador'
+import CriarEditarEscolaFranqueador from './pages/franchisor/CriarEditarEscolaFranqueador'
+import OnboardingEscolaFranqueador from './pages/franchisor/OnboardingEscolaFranqueador'
 import FranchisorReports from './pages/franchisor/FranchisorReports'
 import FranchisorFinance from './pages/franchisor/FranchisorFinance'
+import PadroesMetodologiaFranqueador from './pages/franchisor/PadroesMetodologiaFranqueador'
+import PrecosSugeridosFranqueador from './pages/franchisor/PrecosSugeridosFranqueador'
+import BibliotecaPadroesFranqueador from './pages/franchisor/BibliotecaPadroesFranqueador'
+import DetalheBibliotecaPadraoFranqueador from './pages/franchisor/DetalheBibliotecaPadraoFranqueador'
+import ListaCampanhasFranqueador from './pages/franchisor/ListaCampanhasFranqueador'
+import DetalheCampanhaFranqueador from './pages/franchisor/DetalheCampanhaFranqueador'
+import ResultadosCampanhaFranqueador from './pages/franchisor/ResultadosCampanhaFranqueador'
+import CriarEditarCampanhaFranqueador from './pages/franchisor/CriarEditarCampanhaFranqueador'
+import UsuariosFranqueador from './pages/franchisor/UsuariosFranqueador'
 import Perfil from './pages/Perfil'
 
 export default function App() {
@@ -46,9 +57,22 @@ export default function App() {
       {/* Portal Franqueador */}
       <Route path="/franchisor/dashboard" element={<FranchisorDashboard />} />
       <Route path="/franchisor/schools" element={<ListaEscolasFranqueador />} />
+      <Route path="/franchisor/schools/new" element={<CriarEditarEscolaFranqueador />} />
+      <Route path="/franchisor/schools/:school_id/edit" element={<CriarEditarEscolaFranqueador />} />
+      <Route path="/franchisor/schools/:school_id/onboarding" element={<OnboardingEscolaFranqueador />} />
       <Route path="/franchisor/schools/:school_id" element={<DetalheEscolaFranqueador />} />
       <Route path="/franchisor/reports" element={<FranchisorReports />} />
       <Route path="/franchisor/finance" element={<FranchisorFinance />} />
+      <Route path="/franchisor/standards/methodology" element={<PadroesMetodologiaFranqueador />} />
+      <Route path="/franchisor/standards/pricing" element={<PrecosSugeridosFranqueador />} />
+      <Route path="/franchisor/standards/library" element={<BibliotecaPadroesFranqueador />} />
+      <Route path="/franchisor/standards/library/:item_id" element={<DetalheBibliotecaPadraoFranqueador />} />
+      <Route path="/franchisor/campaigns" element={<ListaCampanhasFranqueador />} />
+      <Route path="/franchisor/campaigns/new" element={<CriarEditarCampanhaFranqueador />} />
+      <Route path="/franchisor/campaigns/:campaign_id/edit" element={<CriarEditarCampanhaFranqueador />} />
+      <Route path="/franchisor/campaigns/:campaign_id" element={<DetalheCampanhaFranqueador />} />
+      <Route path="/franchisor/campaigns/:campaign_id/results" element={<ResultadosCampanhaFranqueador />} />
+      <Route path="/franchisor/users" element={<UsuariosFranqueador />} />
 
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="/admin/settings" element={<ConfiguracoesSistema />} />

@@ -88,9 +88,10 @@
 ### Padrões (metodologia, preços sugeridos)
 | # | Tela | Prioridade |
 |---|------|------------|
-| 3.1 | Metodologia / grade padrão da rede | Fase 2 |
-| 3.2 | Preços sugeridos por modalidade ou plano | Fase 2 |
-| 3.3 | Modelos de turma (padrão) | Fase 2 |
+| 3.1 | Metodologia / grade padrão da rede | MVP |
+| 3.2 | Preços sugeridos por modalidade ou plano | MVP |
+| 3.3 | **Biblioteca de Padrões (histórico/versões)** | Fase 2 |
+| 3.4 | Modelos de turma (padrão) | Fase 2 |
 
 ### Campanhas
 | # | Tela | Prioridade |

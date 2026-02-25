@@ -1,15 +1,24 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import FranchisorLayout from '../../components/FranchisorLayout'
-import { getFranchisorMe, getFranchisorSchoolsList } from '../../api/franchisorPortal'
+import {
+  getFranchisorMe,
+  getStandardsLibrary,
+  LIBRARY_TYPE_METHODOLOGY,
+  LIBRARY_TYPE_PRICING,
+} from '../../api/franchisorPortal'
 import { useDebounce } from '../../hooks/useDebounce'
 
 const GRID = 8
+const TYPE_OPTIONS = [
+  { value: '', label: 'Todos' },
+  { value: 'METHODOLOGY', label: 'Metodologia' },
+  { value: 'PRICING', label: 'Preços sugeridos' },
+]
 const STATUS_OPTIONS = [
   { value: '', label: 'Todos' },
-  { value: 'ativa', label: 'Ativa' },
-  { value: 'pendente', label: 'Pendente' },
-  { value: 'suspensa', label: 'Suspensa' },
+  { value: 'ativo', label: 'Ativo' },
+  { value: 'inativo', label: 'Inativo' },
 ]
 const PAGE_SIZES = [10, 25, 50]
 
@@ -44,13 +53,29 @@ const IconChevronRight = () => (
   </svg>
 )
 
+function formatDateTime(iso) {
+  if (!iso) return '—'
+  try {
+    const d = new Date(iso)
+    return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+  } catch {
+    return iso
+  }
+}
+
+function typeLabel(type) {
+  if (type === LIBRARY_TYPE_METHODOLOGY) return 'Metodologia'
+  if (type === LIBRARY_TYPE_PRICING) return 'Preços sugeridos'
+  return type || '—'
+}
+
 const styles = {
   section: { marginBottom: GRID * 4 },
-  header: { marginBottom: GRID * 4 },
-  searchRow: {
+  headerRow: {
     display: 'flex',
     flexWrap: 'wrap',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: GRID * 2,
     marginBottom: GRID * 3,
   },
@@ -93,7 +118,19 @@ const styles = {
     color: 'var(--grafite-tecnico)',
     minWidth: 140,
   },
-  btnLimpar: {
+  inputDate: {
+    padding: `${GRID * 1.5}px ${GRID * 2}px`,
+    border: '1px solid #E5E5E7',
+    borderRadius: 'var(--radius)',
+    fontSize: 14,
+    background: 'var(--branco-luz)',
+    color: 'var(--grafite-tecnico)',
+    minWidth: 140,
+  },
+  btnSecundario: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: GRID,
     padding: `${GRID * 1.5}px ${GRID * 2}px`,
     fontSize: 14,
     fontWeight: 500,
@@ -124,9 +161,6 @@ const styles = {
     color: 'var(--grafite-tecnico)',
     verticalAlign: 'middle',
   },
-  rowClickable: { cursor: 'pointer' },
-  rowHighlight: { background: 'rgba(44, 110, 242, 0.06)' },
-  linkAbrir: { color: 'var(--azul-arena)', fontWeight: 500, textDecoration: 'none' },
   badge: {
     display: 'inline-block',
     padding: `${GRID / 2}px ${GRID * 1.5}px`,
@@ -135,9 +169,10 @@ const styles = {
     fontWeight: 600,
     textTransform: 'capitalize',
   },
+  typeMetodologia: { background: 'rgba(44, 110, 242, 0.12)', color: 'var(--azul-arena)' },
+  typePricing: { background: 'rgba(76, 203, 138, 0.2)', color: 'var(--verde-patrocinio)' },
   statusAtivo: { background: 'rgba(76, 203, 138, 0.2)', color: 'var(--verde-patrocinio)' },
-  statusPendente: { background: 'rgba(44, 110, 242, 0.15)', color: 'var(--azul-arena)' },
-  statusSuspenso: { background: 'rgba(58, 58, 60, 0.12)', color: 'var(--grafite-tecnico)', opacity: 0.9 },
+  statusInativo: { background: 'rgba(58, 58, 60, 0.12)', color: 'var(--grafite-tecnico)', opacity: 0.9 },
   actionsCell: { width: 56, textAlign: 'right' },
   btnActions: {
     display: 'inline-flex',
@@ -176,7 +211,6 @@ const styles = {
     fontSize: 14,
     color: 'var(--grafite-tecnico)',
     cursor: 'pointer',
-    textDecoration: 'none',
   },
   footer: {
     display: 'flex',
@@ -188,11 +222,7 @@ const styles = {
     padding: `${GRID * 2} 0`,
   },
   paginationInfo: { fontSize: 14, color: 'var(--grafite-tecnico)', opacity: 0.9 },
-  paginationControls: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: GRID,
-  },
+  paginationControls: { display: 'flex', alignItems: 'center', gap: GRID },
   btnPage: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -208,7 +238,6 @@ const styles = {
     cursor: 'pointer',
   },
   btnPageDisabled: { opacity: 0.5, cursor: 'not-allowed' },
-  pageSizeSelect: { marginLeft: GRID * 2 },
   skeleton: {
     height: 20,
     background: 'linear-gradient(90deg, var(--cinza-arquibancada) 25%, #eee 50%, var(--cinza-arquibancada) 75%)',
@@ -226,7 +255,6 @@ const styles = {
   },
   emptyTitle: { margin: '0 0 ' + GRID + 'px', fontSize: 18, fontWeight: 600, color: 'var(--grafite-tecnico)' },
   emptyText: { margin: '0 0 ' + GRID * 2 + 'px', fontSize: 14, color: 'var(--grafite-tecnico)', opacity: 0.85 },
-  emptyLink: { color: 'var(--azul-arena)', fontWeight: 500, textDecoration: 'none' },
   errorBox: {
     display: 'flex',
     alignItems: 'flex-start',
@@ -255,32 +283,38 @@ const styles = {
 
 const ALLOWED_ROLES = ['FranchisorOwner', 'FranchisorStaff']
 
+function TypeBadge({ type }) {
+  const style =
+    type === LIBRARY_TYPE_METHODOLOGY
+      ? { ...styles.badge, ...styles.typeMetodologia }
+      : { ...styles.badge, ...styles.typePricing }
+  return <span style={style}>{typeLabel(type)}</span>
+}
+
 function StatusBadge({ status }) {
   const s = (status || '').toLowerCase()
-  const style =
-    s === 'ativo'
-      ? { ...styles.badge, ...styles.statusAtivo }
-      : s === 'pendente'
-        ? { ...styles.badge, ...styles.statusPendente }
-        : { ...styles.badge, ...styles.statusSuspenso }
-  return <span style={style}>{status || '—'}</span>
+  const style = s === 'ativo' ? { ...styles.badge, ...styles.statusAtivo } : { ...styles.badge, ...styles.statusInativo }
+  return <span style={style}>{status === 'ativo' ? 'Ativo' : 'Inativo'}</span>
 }
 
 function SkeletonRow() {
   return (
     <tr>
-      <td style={styles.td}><div style={{ ...styles.skeleton, width: '70%' }} /></td>
-      <td style={styles.td}><div style={{ ...styles.skeleton, width: '50%' }} /></td>
+      <td style={styles.td}><div style={{ ...styles.skeleton, width: 80 }} /></td>
+      <td style={styles.td}><div style={{ ...styles.skeleton, width: '60%' }} /></td>
+      <td style={styles.td}><div style={{ ...styles.skeleton, width: 40 }} /></td>
       <td style={styles.td}><div style={{ ...styles.skeleton, width: 60 }} /></td>
+      <td style={styles.td}><div style={{ ...styles.skeleton, width: 100 }} /></td>
+      <td style={styles.td}><div style={{ ...styles.skeleton, width: 120 }} /></td>
       <td style={styles.td}><div style={{ ...styles.skeleton, width: 40 }} /></td>
     </tr>
   )
 }
 
-function RowActions({ schoolId, searchParams }) {
+function RowActions({ item, libraryParams }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
-  const returnTo = `/franchisor/schools?${(searchParams || new URLSearchParams()).toString()}`
+  const navigate = useNavigate()
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -292,12 +326,20 @@ function RowActions({ schoolId, searchParams }) {
     }
   }, [open])
 
+  const editPath =
+    item.type === LIBRARY_TYPE_METHODOLOGY
+      ? `/franchisor/standards/methodology?returnTo=${encodeURIComponent('/franchisor/standards/library' + (libraryParams ? '?' + libraryParams : ''))}`
+      : `/franchisor/standards/pricing?returnTo=${encodeURIComponent('/franchisor/standards/library' + (libraryParams ? '?' + libraryParams : ''))}`
+
   return (
     <div style={{ position: 'relative', display: 'inline-block' }} ref={ref}>
       <button
         type="button"
         style={styles.btnActions}
-        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        onClick={(e) => {
+          e.stopPropagation()
+          setOpen(!open)
+        }}
         aria-label="Ações"
         aria-haspopup="true"
         aria-expanded={open}
@@ -306,47 +348,37 @@ function RowActions({ schoolId, searchParams }) {
       </button>
       {open && (
         <div style={styles.dropdown} role="menu">
-          <Link
-            to={`/franchisor/schools/${schoolId}`}
-            state={{ returnTo }}
+          <button
+            type="button"
             style={styles.dropdownItem}
             role="menuitem"
-            onClick={(e) => e.stopPropagation()}
+            onClick={() => {
+              setOpen(false)
+              navigate(`/franchisor/standards/library/${item.item_id}${libraryParams ? '?' + libraryParams : ''}`)
+            }}
           >
-            Abrir
+            Ver histórico
+          </button>
+          <Link to={editPath} style={styles.dropdownItem} role="menuitem" onClick={() => setOpen(false)}>
+            Editar
           </Link>
-          <Link
-            to={`/franchisor/schools/${schoolId}/onboarding`}
-            state={{ returnTo: `/franchisor/schools?${(searchParams || new URLSearchParams()).toString()}` }}
-            style={styles.dropdownItem}
-            role="menuitem"
-            onClick={(e) => e.stopPropagation()}
-          >
-            Ver onboarding
-          </Link>
-          <a
-            href={`/school/dashboard?school_id=${schoolId}`}
-            style={styles.dropdownItem}
-            role="menuitem"
-            onClick={(e) => e.stopPropagation()}
-          >
-            Abrir portal da escola
-          </a>
         </div>
       )}
     </div>
   )
 }
 
-export default function ListaEscolasFranqueador() {
+export default function BibliotecaPadroesFranqueador() {
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
 
   const searchParam = searchParams.get('search') || ''
+  const typeParam = searchParams.get('type') || ''
   const statusParam = searchParams.get('status') || ''
+  const fromParam = searchParams.get('from') || ''
+  const toParam = searchParams.get('to') || ''
   const pageParam = parseInt(searchParams.get('page'), 10) || 1
   const pageSizeParam = Math.min(50, Math.max(10, parseInt(searchParams.get('page_size'), 10) || 10))
-  const schoolIdSwitcher = searchParams.get('school_id') || null
 
   const [searchInput, setSearchInput] = useState(searchParam)
   const debouncedSearch = useDebounce(searchInput, 400)
@@ -357,34 +389,31 @@ export default function ListaEscolasFranqueador() {
   const [error, setError] = useState(null)
   const [permissionDenied, setPermissionDenied] = useState(false)
   const [initialLoad, setInitialLoad] = useState(true)
-  const [canCreateSchool, setCanCreateSchool] = useState(false)
 
-  // Sincronizar busca na URL (debounce); ao mudar busca, resetar para página 1
   useEffect(() => {
-    const currentSearch = searchParams.get('search') || ''
-    if (currentSearch === debouncedSearch) return
     const next = new URLSearchParams(searchParams)
-    if (debouncedSearch) next.set('search', debouncedSearch)
-    else next.delete('search')
-    next.set('page', '1')
-    setSearchParams(next, { replace: true })
+    if ((searchParams.get('search') || '') !== debouncedSearch) {
+      if (debouncedSearch) next.set('search', debouncedSearch)
+      else next.delete('search')
+      next.set('page', '1')
+      setSearchParams(next, { replace: true })
+    }
   }, [debouncedSearch])
 
-  // Verificar permissão e se pode criar escola (MVP: apenas FranchisorOwner)
   useEffect(() => {
     let cancelled = false
     getFranchisorMe()
       .then((me) => {
-        if (!cancelled) {
-          if (!ALLOWED_ROLES.includes(me.user_role)) setPermissionDenied(true)
-          else setCanCreateSchool(me.user_role === 'FranchisorOwner')
-        }
+        if (!cancelled && !ALLOWED_ROLES.includes(me.user_role)) setPermissionDenied(true)
       })
-      .catch(() => { if (!cancelled) setPermissionDenied(true) })
-    return () => { cancelled = true }
+      .catch(() => {
+        if (!cancelled) setPermissionDenied(true)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  // Buscar escolas (paginação + filtros)
   useEffect(() => {
     if (permissionDenied) return
     let cancelled = false
@@ -392,9 +421,12 @@ export default function ListaEscolasFranqueador() {
     setLoading(true)
     const page = Math.max(1, parseInt(searchParams.get('page'), 10) || 1)
     const pageSize = Math.min(50, Math.max(10, parseInt(searchParams.get('page_size'), 10) || 10))
-    getFranchisorSchoolsList({
+    getStandardsLibrary({
       search: searchParams.get('search') || '',
+      type: searchParams.get('type') || '',
       status: searchParams.get('status') || '',
+      from: searchParams.get('from') || '',
+      to: searchParams.get('to') || '',
       page,
       page_size: pageSize,
     })
@@ -405,7 +437,7 @@ export default function ListaEscolasFranqueador() {
         }
       })
       .catch((err) => {
-        if (!cancelled) setError(err?.message || 'Não foi possível carregar as escolas. Tente novamente.')
+        if (!cancelled) setError(err?.message || 'Não foi possível carregar a biblioteca. Tente novamente.')
       })
       .finally(() => {
         if (!cancelled) {
@@ -413,26 +445,14 @@ export default function ListaEscolasFranqueador() {
           setInitialLoad(false)
         }
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [permissionDenied, searchParams])
 
   useEffect(() => {
-    if (permissionDenied) {
-      navigate('/acesso-negado?from=franchisor', { replace: true })
-    }
+    if (permissionDenied) navigate('/acesso-negado?from=franchisor', { replace: true })
   }, [permissionDenied, navigate])
-
-  const handleLimparFiltros = () => {
-    setSearchInput('')
-    setSearchParams(
-      new URLSearchParams({
-        page: '1',
-        page_size: String(pageSizeParam),
-        ...(schoolIdSwitcher ? { school_id: schoolIdSwitcher } : {}),
-      }),
-      { replace: true }
-    )
-  }
 
   const setPage = (p) => {
     const next = new URLSearchParams(searchParams)
@@ -447,57 +467,79 @@ export default function ListaEscolasFranqueador() {
     setSearchParams(next, { replace: true })
   }
 
+  const clearFilters = () => {
+    setSearchInput('')
+    setSearchParams(
+      new URLSearchParams({ page: '1', page_size: String(pageSizeParam) }),
+      { replace: true }
+    )
+  }
+
   const totalPages = Math.max(1, Math.ceil(total / pageSizeParam))
   const currentPage = Math.min(pageParam, totalPages)
-  const hasFilters = (searchParams.get('search') || '').trim() || (searchParams.get('status') || '').trim()
+  const hasFilters =
+    (searchParams.get('search') || '').trim() ||
+    (searchParams.get('type') || '').trim() ||
+    (searchParams.get('status') || '').trim() ||
+    (searchParams.get('from') || '').trim() ||
+    (searchParams.get('to') || '').trim()
+  const libraryParams = searchParams.toString()
 
   const breadcrumb = [
     { label: 'Dashboard', to: '/franchisor/dashboard' },
-    { label: 'Escolas' },
+    { label: 'Padrões' },
+    { label: 'Biblioteca' },
   ]
 
   if (permissionDenied) return null
 
   return (
-    <FranchisorLayout pageTitle="Escolas" breadcrumb={breadcrumb}>
-      <section style={styles.section} aria-label="Lista de escolas">
-        {/* Busca + Nova escola */}
-        <div style={styles.searchRow}>
-          <div style={styles.searchWrap}>
-            <span style={styles.searchIcon} aria-hidden="true"><IconSearch /></span>
+    <FranchisorLayout pageTitle="Biblioteca de Padrões" breadcrumb={breadcrumb}>
+      <section style={styles.section} aria-label="Biblioteca de padrões">
+        <div style={styles.headerRow}>
+          <div style={{ ...styles.searchWrap, flex: '1 1 320px' }}>
+            <span style={styles.searchIcon} aria-hidden="true">
+              <IconSearch />
+            </span>
             <input
               type="search"
-              placeholder="Buscar por nome da escola ou cidade"
+              placeholder="Buscar por título, tipo ou versão"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               style={styles.searchInput}
-              aria-label="Buscar por nome da escola ou cidade"
+              aria-label="Buscar por título, tipo ou versão"
             />
           </div>
-          {canCreateSchool && (
-            <Link
-              to={`/franchisor/schools/new?${searchParams.toString()}`}
-              style={{
-                ...styles.btnLimpar,
-                background: 'var(--azul-arena)',
-                color: '#fff',
-                padding: `${GRID * 1.5}px ${GRID * 3}px`,
-                textDecoration: 'none',
-              }}
-              className="btn-hover"
-            >
-              Nova escola
-            </Link>
-          )}
         </div>
 
-        {/* Filtros */}
         <div style={styles.filtersRow}>
-          <label htmlFor="filtro-status" style={{ fontSize: 14, fontWeight: 500, color: 'var(--grafite-tecnico)' }}>
+          <label htmlFor="filtro-type-lib" style={{ fontSize: 14, fontWeight: 500, color: 'var(--grafite-tecnico)' }}>
+            Tipo de padrão
+          </label>
+          <select
+            id="filtro-type-lib"
+            value={typeParam}
+            onChange={(e) => {
+              const next = new URLSearchParams(searchParams)
+              if (e.target.value) next.set('type', e.target.value)
+              else next.delete('type')
+              next.set('page', '1')
+              setSearchParams(next, { replace: true })
+            }}
+            style={styles.select}
+            aria-label="Tipo de padrão"
+          >
+            {TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value || 'todos'} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <label htmlFor="filtro-status-lib" style={{ fontSize: 14, fontWeight: 500, color: 'var(--grafite-tecnico)' }}>
             Status
           </label>
           <select
-            id="filtro-status"
+            id="filtro-status-lib"
             value={statusParam}
             onChange={(e) => {
               const next = new URLSearchParams(searchParams)
@@ -507,23 +549,54 @@ export default function ListaEscolasFranqueador() {
               setSearchParams(next, { replace: true })
             }}
             style={styles.select}
-            aria-label="Filtrar por status"
+            aria-label="Status"
           >
             {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value || 'todos'} value={opt.value}>{opt.label}</option>
+              <option key={opt.value || 'todos'} value={opt.value}>
+                {opt.label}
+              </option>
             ))}
           </select>
+          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--grafite-tecnico)' }}>Alterado de</span>
+          <input
+            type="date"
+            value={fromParam}
+            onChange={(e) => {
+              const next = new URLSearchParams(searchParams)
+              if (e.target.value) next.set('from', e.target.value)
+              else next.delete('from')
+              next.set('page', '1')
+              setSearchParams(next, { replace: true })
+            }}
+            style={styles.inputDate}
+            aria-label="Alterado de"
+          />
+          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--grafite-tecnico)' }}>até</span>
+          <input
+            type="date"
+            value={toParam}
+            onChange={(e) => {
+              const next = new URLSearchParams(searchParams)
+              if (e.target.value) next.set('to', e.target.value)
+              else next.delete('to')
+              next.set('page', '1')
+              setSearchParams(next, { replace: true })
+            }}
+            style={styles.inputDate}
+            aria-label="Alterado até"
+          />
           {hasFilters && (
-            <button type="button" style={styles.btnLimpar} onClick={handleLimparFiltros} className="btn-hover">
+            <button type="button" style={styles.btnSecundario} onClick={clearFilters}>
               Limpar filtros
             </button>
           )}
         </div>
 
-        {/* Erro */}
         {error && (
           <div style={styles.errorBox} role="alert">
-            <span style={styles.errorIcon}><IconAlert /></span>
+            <span style={styles.errorIcon}>
+              <IconAlert />
+            </span>
             <div style={styles.errorContent}>
               <div style={styles.errorTitle}>Erro</div>
               <div style={styles.errorText}>{error}</div>
@@ -534,39 +607,34 @@ export default function ListaEscolasFranqueador() {
           </div>
         )}
 
-        {/* Tabela ou estados vazios */}
         {!error && (
           <div style={styles.tableWrap}>
             {loading ? (
               <table style={styles.table}>
                 <thead>
                   <tr>
-                    <th style={styles.th}>Nome da escola</th>
-                    <th style={styles.th}>Cidade/UF</th>
+                    <th style={styles.th}>Tipo</th>
+                    <th style={styles.th}>Título / Item</th>
+                    <th style={styles.th}>Versão atual</th>
                     <th style={styles.th}>Status</th>
-                    <th style={styles.actionsCell} />
+                    <th style={styles.th}>Última alteração</th>
+                    <th style={styles.th}>Alterado por</th>
+                    <th style={styles.actionsCell} aria-label="Ações" />
                   </tr>
                 </thead>
                 <tbody>
-                  {[...Array(5)].map((_, i) => <SkeletonRow key={i} />)}
+                  {[...Array(5)].map((_, i) => (
+                    <SkeletonRow key={i} />
+                  ))}
                 </tbody>
               </table>
             ) : items.length === 0 ? (
               <div style={styles.emptyState}>
-                <h2 style={styles.emptyTitle}>
-                  {initialLoad && !hasFilters
-                    ? 'Você ainda não possui escolas vinculadas.'
-                    : 'Nenhuma escola encontrada com os filtros atuais.'}
-                </h2>
+                <h2 style={styles.emptyTitle}>Nenhum padrão encontrado.</h2>
                 <p style={styles.emptyText}>
                   {initialLoad && !hasFilters
-                    ? 'Nenhuma escola está vinculada ao seu franqueador no momento.'
-                    : 'Tente alterar a busca ou o filtro de status.'}
-                </p>
-                <p style={{ margin: 0 }}>
-                  <Link to="/franchisor/dashboard" style={styles.emptyLink}>
-                    Voltar ao Dashboard
-                  </Link>
+                    ? 'Os padrões de metodologia e preços sugeridos aparecerão aqui.'
+                    : 'Nenhum item corresponde aos filtros aplicados.'}
                 </p>
               </div>
             ) : (
@@ -574,45 +642,45 @@ export default function ListaEscolasFranqueador() {
                 <table style={styles.table}>
                   <thead>
                     <tr>
-                      <th style={styles.th}>Nome da escola</th>
-                      <th style={styles.th}>Cidade/UF</th>
+                      <th style={styles.th}>Tipo</th>
+                      <th style={styles.th}>Título / Item</th>
+                      <th style={styles.th}>Versão atual</th>
                       <th style={styles.th}>Status</th>
+                      <th style={styles.th}>Última alteração</th>
+                      <th style={styles.th}>Alterado por</th>
                       <th style={styles.actionsCell} aria-label="Ações" />
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((s) => (
-                      <tr
-                        key={s.school_id}
-                        style={{
-                          ...styles.rowClickable,
-                          ...(schoolIdSwitcher === s.school_id ? styles.rowHighlight : {}),
-                        }}
-                        onClick={() =>
-                          navigate(`/franchisor/schools/${s.school_id}`, {
-                            state: { returnTo: `/franchisor/schools?${searchParams.toString()}` },
-                          })
-                        }
-                      >
-                        <td style={styles.td}>{s.school_name}</td>
+                    {items.map((row) => (
+                      <tr key={row.item_id}>
                         <td style={styles.td}>
-                          {[s.city, s.state].filter(Boolean).join(' / ') || '—'}
+                          <TypeBadge type={row.type} />
                         </td>
                         <td style={styles.td}>
-                          <StatusBadge status={s.status} />
+                          <Link
+                            to={`/franchisor/standards/library/${row.item_id}${libraryParams ? '?' + libraryParams : ''}`}
+                            style={{ color: 'var(--azul-arena)', fontWeight: 500, textDecoration: 'none' }}
+                          >
+                            {row.title_or_name}
+                          </Link>
                         </td>
-                        <td style={styles.td} onClick={(e) => e.stopPropagation()}>
-                          <RowActions schoolId={s.school_id} searchParams={searchParams} />
+                        <td style={styles.td}>{row.current_version || '—'}</td>
+                        <td style={styles.td}>
+                          <StatusBadge status={row.status} />
+                        </td>
+                        <td style={styles.td}>{formatDateTime(row.updated_at)}</td>
+                        <td style={styles.td}>{row.updated_by_name || row.updated_by_email || '—'}</td>
+                        <td style={styles.td}>
+                          <RowActions item={row} libraryParams={libraryParams} />
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-
-                {/* Rodapé: paginação */}
                 <div style={styles.footer}>
                   <div style={styles.paginationInfo}>
-                    {total} {total === 1 ? 'escola' : 'escolas'}
+                    {total} {total === 1 ? 'item' : 'itens'}
                     {totalPages > 1 && ` · Página ${currentPage} de ${totalPages}`}
                   </div>
                   <div style={styles.paginationControls}>
@@ -637,18 +705,20 @@ export default function ListaEscolasFranqueador() {
                     >
                       <IconChevronRight />
                     </button>
-                    <label htmlFor="page-size" style={{ marginLeft: GRID * 2, fontSize: 14, color: 'var(--grafite-tecnico)' }}>
+                    <label htmlFor="page-size-lib" style={{ marginLeft: GRID * 2, fontSize: 14, color: 'var(--grafite-tecnico)' }}>
                       Itens por página
                     </label>
                     <select
-                      id="page-size"
+                      id="page-size-lib"
                       value={pageSizeParam}
                       onChange={(e) => setPageSize(Number(e.target.value))}
-                      style={{ ...styles.select, ...styles.pageSizeSelect, minWidth: 70 }}
+                      style={{ ...styles.select, marginLeft: GRID, minWidth: 70 }}
                       aria-label="Itens por página"
                     >
                       {PAGE_SIZES.map((n) => (
-                        <option key={n} value={n}>{n}</option>
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
                       ))}
                     </select>
                   </div>

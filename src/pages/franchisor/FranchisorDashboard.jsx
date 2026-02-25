@@ -355,7 +355,7 @@ export default function FranchisorDashboard() {
             </div>
           </section>
 
-          {/* Atalhos rápidos — MVP: só Ver escolas e Relatórios */}
+          {/* Atalhos rápidos — MVP: Ver escolas, Relatórios, Padrões */}
           <section style={styles.section} aria-label="Atalhos rápidos">
             <h2 style={styles.sectionTitle}>Atalhos rápidos</h2>
             <div style={styles.atalhosGrid}>
@@ -363,8 +363,28 @@ export default function FranchisorDashboard() {
                 Ver escolas
                 <IconArrowRight />
               </Link>
+              <Link to="/franchisor/users" style={styles.atalhoLink} className="btn-hover">
+                Usuários
+                <IconArrowRight />
+              </Link>
+              <Link to="/franchisor/campaigns" style={styles.atalhoLink} className="btn-hover">
+                Campanhas
+                <IconArrowRight />
+              </Link>
               <Link to="/franchisor/reports" style={styles.atalhoLink} className="btn-hover">
                 Relatórios consolidados
+                <IconArrowRight />
+              </Link>
+              <Link to="/franchisor/standards/methodology" style={styles.atalhoLink} className="btn-hover">
+                Padrões (Metodologia)
+                <IconArrowRight />
+              </Link>
+              <Link to="/franchisor/standards/pricing" style={styles.atalhoLink} className="btn-hover">
+                Preços sugeridos
+                <IconArrowRight />
+              </Link>
+              <Link to="/franchisor/standards/library" style={styles.atalhoLink} className="btn-hover">
+                Biblioteca de Padrões
                 <IconArrowRight />
               </Link>
             </div>
