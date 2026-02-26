@@ -1,17 +1,18 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useState, useEffect, useCallback } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import SchoolLayout from '../../components/SchoolLayout'
-import { getSchoolTrainings, getSchoolTeams } from '../../api/schoolPortal'
+import { getSchoolAssessments, getSchoolTeams } from '../../api/schoolPortal'
 
 const GRID = 8
 const PAGE_SIZE_OPTIONS = [10, 25, 50]
-const SORT_DEFAULT = 'date_desc'
 
-const IconMore = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="18" r="1.5"/>
-  </svg>
-)
+const TYPE_LABELS = {
+  tecnica: 'Técnica',
+  fisica: 'Física',
+  faixa: 'Faixa/Graduação',
+  outro: 'Outro',
+}
+
 const IconAlert = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
@@ -41,6 +42,15 @@ const styles = {
     justifyContent: 'space-between',
     gap: GRID * 2,
     marginBottom: GRID * 3,
+  },
+  searchInput: {
+    padding: `${GRID}px ${GRID * 2}px`,
+    fontSize: 14,
+    border: '1px solid #ddd',
+    borderRadius: 'var(--radius)',
+    color: 'var(--grafite-tecnico)',
+    background: 'var(--branco-luz)',
+    minWidth: 260,
   },
   filtersRow: {
     display: 'flex',
@@ -77,15 +87,6 @@ const styles = {
   },
   btnPrimary: { background: 'var(--azul-arena)', color: '#fff' },
   btnSecondary: { background: 'var(--cinza-arquibancada)', color: 'var(--grafite-tecnico)' },
-  quickPeriod: {
-    padding: `${GRID / 2}px ${GRID}px`,
-    fontSize: 13,
-    color: 'var(--azul-arena)',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    textDecoration: 'underline',
-  },
   tableWrap: {
     background: 'var(--branco-luz)',
     borderRadius: 'var(--radius)',
@@ -108,52 +109,6 @@ const styles = {
     color: 'var(--grafite-tecnico)',
   },
   trClick: { cursor: 'pointer' },
-  statusBadge: {
-    display: 'inline-block',
-    padding: '2px 8px',
-    borderRadius: 999,
-    fontSize: 12,
-    fontWeight: 500,
-  },
-  statusPlanned: { background: '#DBEAFE', color: '#1E40AF' },
-  statusCompleted: { background: '#D1FAE5', color: '#065F46' },
-  statusCancelled: { background: '#FEE2E2', color: '#991B1B' },
-  menuWrap: { position: 'relative', display: 'inline-block' },
-  menuBtn: {
-    padding: GRID,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    borderRadius: 4,
-    color: 'var(--grafite-tecnico)',
-    opacity: 0.8,
-  },
-  menuDropdown: {
-    position: 'absolute',
-    right: 0,
-    top: '100%',
-    marginTop: 4,
-    minWidth: 180,
-    background: 'var(--branco-luz)',
-    border: '1px solid #eee',
-    borderRadius: 'var(--radius)',
-    boxShadow: 'var(--shadow)',
-    zIndex: 10,
-    padding: GRID,
-  },
-  menuItem: {
-    display: 'block',
-    width: '100%',
-    padding: `${GRID}px ${GRID * 2}px`,
-    textAlign: 'left',
-    fontSize: 14,
-    color: 'var(--grafite-tecnico)',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    borderRadius: 4,
-    textDecoration: 'none',
-  },
   pagination: {
     display: 'flex',
     flexWrap: 'wrap',
@@ -196,8 +151,7 @@ const styles = {
   errorText: { margin: '0 0 ' + GRID * 2 + 'px', fontSize: 14, color: '#991B1B', opacity: 0.9 },
 }
 
-const canCreateTraining = true
-const PRESENCA_MVP = true
+const canCreateAssessment = true // exibir botão apenas se tiver permissão
 
 function formatDate(dateStr) {
   if (!dateStr) return '—'
@@ -209,108 +163,21 @@ function formatDate(dateStr) {
   }
 }
 
-function formatTime(start, end) {
-  if (!start && !end) return '—'
-  if (start && end) return `${start} – ${end}`
-  return start || end || '—'
-}
-
-const STATUS_LABEL = { planned: 'Planejado', completed: 'Realizado', cancelled: 'Cancelado' }
-
-function getStatusStyle(s) {
-  if (s === 'planned') return styles.statusPlanned
-  if (s === 'completed') return styles.statusCompleted
-  if (s === 'cancelled') return styles.statusCancelled
-  return {}
-}
-
-function getToday() {
-  const d = new Date()
-  return d.toISOString().slice(0, 10)
-}
-
-function getWeekRange() {
-  const d = new Date()
-  const day = d.getDay()
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-  const mon = new Date(d)
-  mon.setDate(diff)
-  const sun = new Date(mon)
-  sun.setDate(mon.getDate() + 6)
-  return { from: mon.toISOString().slice(0, 10), to: sun.toISOString().slice(0, 10) }
-}
-
-function getMonthRange() {
-  const d = new Date()
-  const first = new Date(d.getFullYear(), d.getMonth(), 1)
-  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0)
-  return { from: first.toISOString().slice(0, 10), to: last.toISOString().slice(0, 10) }
-}
-
-function TrainingRow({ training, onCloseMenu, onNavigateToDetail }) {
-  const [menuOpen, setMenuOpen] = useState(false)
-
+function AssessmentRow({ assessment, onNavigateToDetail }) {
+  const typeLabel = assessment.type ? (TYPE_LABELS[assessment.type] ?? assessment.type) : '—'
+  const titleDisplay = assessment.title || typeLabel || '—'
   return (
     <tr
       style={styles.trClick}
       className="btn-hover"
-      onClick={(e) => {
-        if (e.target.closest('[data-action-menu]')) return
-        onNavigateToDetail?.(training.id)
-      }}
+      onClick={() => onNavigateToDetail?.(assessment.id)}
     >
-      <td style={styles.td}>{formatDate(training.date)}</td>
-      <td style={styles.td}>{formatTime(training.start_time, training.end_time)}</td>
-      <td style={styles.td}>{training.team_name || '—'}</td>
-      <td style={styles.td}>{training.title || `Treino ${formatDate(training.date)}`}</td>
-      <td style={styles.td}>
-        {training.status != null ? (
-          <span style={{ ...styles.statusBadge, ...getStatusStyle(training.status) }}>
-            {STATUS_LABEL[training.status] ?? training.status}
-          </span>
-        ) : (
-          '—'
-        )}
-      </td>
-      <td style={styles.td} data-action-menu onClick={(e) => e.stopPropagation()}>
-        <div style={styles.menuWrap}>
-          <button
-            type="button"
-            style={styles.menuBtn}
-            aria-label="Ações"
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            <IconMore />
-          </button>
-          {menuOpen && (
-            <>
-              <div
-                style={{ position: 'fixed', inset: 0, zIndex: 9 }}
-                aria-hidden
-                onClick={() => { setMenuOpen(false); onCloseMenu?.() }}
-              />
-              <div style={styles.menuDropdown}>
-                <Link
-                  to={`/school/trainings/${training.id}/edit`}
-                  style={styles.menuItem}
-                  onClick={() => { setMenuOpen(false); onCloseMenu?.() }}
-                >
-                  Editar
-                </Link>
-                {PRESENCA_MVP && (
-                  <Link
-                    to={`/school/attendance?trainingId=${training.id}`}
-                    style={styles.menuItem}
-                    onClick={() => { setMenuOpen(false); onCloseMenu?.() }}
-                  >
-                    Registrar presença
-                  </Link>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </td>
+      <td style={styles.td}>{formatDate(assessment.date)}</td>
+      <td style={styles.td}>{assessment.student_name || '—'}</td>
+      <td style={styles.td}>{assessment.team_name ?? '—'}</td>
+      <td style={styles.td}>{titleDisplay}</td>
+      <td style={styles.td}>{assessment.result_summary ?? '—'}</td>
+      <td style={styles.td}>{assessment.evaluator?.name ?? '—'}</td>
     </tr>
   )
 }
@@ -322,22 +189,22 @@ function TableSkeleton({ rows = 5 }) {
         <thead>
           <tr>
             <th style={styles.th}>Data</th>
-            <th style={styles.th}>Horário</th>
+            <th style={styles.th}>Aluno</th>
             <th style={styles.th}>Turma</th>
-            <th style={styles.th}>Título</th>
-            <th style={styles.th}>Status</th>
-            <th style={styles.th}></th>
+            <th style={styles.th}>Tipo / Título</th>
+            <th style={styles.th}>Resultado</th>
+            <th style={styles.th}>Avaliador</th>
           </tr>
         </thead>
         <tbody>
           {Array.from({ length: rows }).map((_, i) => (
             <tr key={i}>
               <td style={styles.td}><div style={{ ...styles.skeleton, width: '70%' }} /></td>
-              <td style={styles.td}><div style={{ ...styles.skeleton, width: 80 }} /></td>
-              <td style={styles.td}><div style={{ ...styles.skeleton, width: '50%' }} /></td>
               <td style={styles.td}><div style={{ ...styles.skeleton, width: '60%' }} /></td>
-              <td style={styles.td}><div style={{ ...styles.skeleton, width: 80 }} /></td>
-              <td style={styles.td}><div style={{ ...styles.skeleton, width: 24 }} /></td>
+              <td style={styles.td}><div style={{ ...styles.skeleton, width: '50%' }} /></td>
+              <td style={styles.td}><div style={{ ...styles.skeleton, width: '55%' }} /></td>
+              <td style={styles.td}><div style={{ ...styles.skeleton, width: 60 }} /></td>
+              <td style={styles.td}><div style={{ ...styles.skeleton, width: '50%' }} /></td>
             </tr>
           ))}
         </tbody>
@@ -346,29 +213,54 @@ function TableSkeleton({ rows = 5 }) {
   )
 }
 
-export default function SchoolTrainings() {
+export default function SchoolAssessments() {
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
 
-  const [teams, setTeams] = useState([])
   const [data, setData] = useState(null)
+  const [teams, setTeams] = useState([])
+  const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [permissionDenied, setPermissionDenied] = useState(false)
 
-  const teamIdFromQuery = searchParams.get('teamId') || ''
-
+  const [q, setQ] = useState('')
   const [teamId, setTeamId] = useState('')
+  const [studentId, setStudentId] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
-  const [status, setStatus] = useState('')
+  const [type, setType] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
-  const [sort] = useState(SORT_DEFAULT)
 
-  useEffect(() => {
-    if (teamIdFromQuery && !teamId) setTeamId(teamIdFromQuery)
-  }, [teamIdFromQuery])
+  const fetchAssessments = useCallback(() => {
+    setError(null)
+    setLoading(true)
+    const params = {
+      page,
+      page_size: pageSize,
+      sort: 'date_desc',
+      ...(q && { q: q.trim() }),
+      ...(teamId && { team_id: teamId }),
+      ...(studentId && { student_id: studentId }),
+      ...(fromDate && { from_date: fromDate }),
+      ...(toDate && { to_date: toDate }),
+      ...(type && { type }),
+    }
+    getSchoolAssessments(params)
+      .then((res) => {
+        setData(res)
+        if (res.teams) setTeams(res.teams)
+        if (res.students) setStudents(res.students)
+      })
+      .catch((err) => {
+        if (err.status === 403 || err.code === 'FORBIDDEN') {
+          setPermissionDenied(true)
+        } else {
+          setError(err?.message || 'Não foi possível carregar as avaliações. Tente novamente.')
+        }
+      })
+      .finally(() => setLoading(false))
+  }, [page, pageSize, q, teamId, studentId, fromDate, toDate, type])
 
   const fetchTeams = useCallback(() => {
     getSchoolTeams()
@@ -380,33 +272,14 @@ export default function SchoolTrainings() {
     fetchTeams()
   }, [fetchTeams])
 
-  const fetchTrainings = useCallback(() => {
-    setError(null)
-    setLoading(true)
-    const params = {
-      page,
-      page_size: pageSize,
-      sort,
-      ...(teamId && { team_id: teamId }),
-      ...(fromDate && { from_date: fromDate }),
-      ...(toDate && { to_date: toDate }),
-      ...(status && { status }),
-    }
-    getSchoolTrainings(params)
-      .then((res) => setData(res))
-      .catch((err) => {
-        if (err.status === 403 || err.code === 'FORBIDDEN') {
-          setPermissionDenied(true)
-        } else {
-          setError(err?.message || 'Não foi possível carregar os treinos. Tente novamente.')
-        }
-      })
-      .finally(() => setLoading(false))
-  }, [page, pageSize, sort, teamId, fromDate, toDate, status])
+  useEffect(() => {
+    fetchAssessments()
+  }, [fetchAssessments])
 
   useEffect(() => {
-    fetchTrainings()
-  }, [fetchTrainings])
+    if (data?.teams && data.teams.length > 0) setTeams((prev) => (prev.length ? prev : data.teams))
+    if (data?.students && data.students.length > 0) setStudents((prev) => (prev.length ? prev : data.students))
+  }, [data])
 
   useEffect(() => {
     if (permissionDenied) {
@@ -414,42 +287,13 @@ export default function SchoolTrainings() {
     }
   }, [permissionDenied, navigate])
 
-  const fromListQuery = useMemo(() => {
-    const p = new URLSearchParams()
-    if (teamId) p.set('teamId', teamId)
-    if (fromDate) p.set('from', fromDate)
-    if (toDate) p.set('to', toDate)
-    if (status) p.set('status', status)
-    return p.toString() ? `?${p.toString()}` : ''
-  }, [teamId, fromDate, toDate, status])
-
   const clearFilters = () => {
+    setQ('')
     setTeamId('')
+    setStudentId('')
     setFromDate('')
     setToDate('')
-    setStatus('')
-    setPage(1)
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev)
-      next.delete('teamId')
-      return next
-    })
-  }
-
-  const applyQuickPeriod = (type) => {
-    if (type === 'today') {
-      const t = getToday()
-      setFromDate(t)
-      setToDate(t)
-    } else if (type === 'week') {
-      const { from, to } = getWeekRange()
-      setFromDate(from)
-      setToDate(to)
-    } else if (type === 'month') {
-      const { from, to } = getMonthRange()
-      setFromDate(from)
-      setToDate(to)
-    }
+    setType('')
     setPage(1)
   }
 
@@ -457,27 +301,40 @@ export default function SchoolTrainings() {
   const items = data?.items ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
-  const hasFilters = teamId || fromDate || toDate || status
+  const hasFilters = q.trim() || teamId || studentId || fromDate || toDate || type
   const isEmpty = !loading && !error && items.length === 0
+  const emptyWithFilters = isEmpty && hasFilters
 
   if (permissionDenied) return null
 
   return (
     <SchoolLayout schoolName={schoolName}>
       <header style={styles.header}>
-        <h1 style={styles.title}>Treinos</h1>
-        <p style={styles.subtitle}>Planejamento e histórico de treinos</p>
+        <h1 style={styles.title}>Avaliações</h1>
+        <p style={styles.subtitle}>Resultados e registros por aluno/turma</p>
       </header>
 
       <div style={styles.toolbar}>
-        <div />
-        {canCreateTraining && (
+        <label style={{ display: 'flex', alignItems: 'center', gap: GRID, fontSize: 14, color: 'var(--grafite-tecnico)' }}>
+          Buscar
+          <input
+            type="search"
+            aria-label="Buscar"
+            placeholder="Aluno, turma, tipo de avaliação"
+            value={q}
+            onChange={(e) => { setQ(e.target.value); setPage(1) }}
+            onKeyDown={(e) => e.key === 'Enter' && setPage(1)}
+            style={styles.searchInput}
+            disabled={loading}
+          />
+        </label>
+        {canCreateAssessment && (
           <Link
-            to="/school/trainings/new"
+            to="/school/assessments/new"
             style={{ ...styles.btn, ...styles.btnPrimary, textDecoration: 'none' }}
             className="btn-hover"
           >
-            Novo treino
+            Aplicar avaliação
           </Link>
         )}
       </div>
@@ -490,9 +347,21 @@ export default function SchoolTrainings() {
           style={styles.select}
           disabled={loading}
         >
-          <option value="">Todas as turmas</option>
+          <option value="">Turma</option>
           {teams.map((t) => (
             <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
+        <select
+          aria-label="Aluno"
+          value={studentId}
+          onChange={(e) => { setStudentId(e.target.value); setPage(1) }}
+          style={styles.select}
+          disabled={loading}
+        >
+          <option value="">Aluno</option>
+          {students.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
         <label style={{ display: 'flex', alignItems: 'center', gap: GRID, fontSize: 14, color: 'var(--grafite-tecnico)' }}>
@@ -517,30 +386,18 @@ export default function SchoolTrainings() {
             disabled={loading}
           />
         </label>
-        <span style={{ display: 'flex', alignItems: 'center', gap: GRID / 2 }}>
-          <button type="button" style={styles.quickPeriod} onClick={() => applyQuickPeriod('today')} disabled={loading}>
-            Hoje
-          </button>
-          <span style={{ opacity: 0.5 }}>|</span>
-          <button type="button" style={styles.quickPeriod} onClick={() => applyQuickPeriod('week')} disabled={loading}>
-            Esta semana
-          </button>
-          <span style={{ opacity: 0.5 }}>|</span>
-          <button type="button" style={styles.quickPeriod} onClick={() => applyQuickPeriod('month')} disabled={loading}>
-            Este mês
-          </button>
-        </span>
         <select
-          aria-label="Status do treino"
-          value={status}
-          onChange={(e) => { setStatus(e.target.value); setPage(1) }}
+          aria-label="Tipo"
+          value={type}
+          onChange={(e) => { setType(e.target.value); setPage(1) }}
           style={styles.select}
           disabled={loading}
         >
-          <option value="">Status</option>
-          <option value="planned">Planejado</option>
-          <option value="completed">Realizado</option>
-          <option value="cancelled">Cancelado</option>
+          <option value="">Tipo</option>
+          <option value="tecnica">Técnica</option>
+          <option value="fisica">Física</option>
+          <option value="faixa">Faixa/Graduação</option>
+          <option value="outro">Outro</option>
         </select>
         {hasFilters && (
           <button type="button" style={{ ...styles.btn, ...styles.btnSecondary }} onClick={clearFilters}>
@@ -555,7 +412,7 @@ export default function SchoolTrainings() {
           <div style={styles.errorContent}>
             <div style={styles.errorTitle}>Erro ao carregar</div>
             <div style={styles.errorText}>{error}</div>
-            <button type="button" style={{ ...styles.btn, ...styles.btnPrimary }} onClick={() => fetchTrainings()}>
+            <button type="button" style={{ ...styles.btn, ...styles.btnPrimary }} onClick={() => fetchAssessments()}>
               Recarregar
             </button>
           </div>
@@ -567,17 +424,23 @@ export default function SchoolTrainings() {
       {!error && !loading && isEmpty && (
         <div style={styles.emptyState}>
           <p style={styles.emptyText}>
-            Nenhum treino encontrado para o período selecionado.
+            {emptyWithFilters
+              ? 'Nenhuma avaliação encontrada com os filtros aplicados.'
+              : 'Nenhuma avaliação registrada ainda.'}
           </p>
-          {canCreateTraining && (
+          {emptyWithFilters ? (
+            <button type="button" style={{ ...styles.btn, ...styles.btnSecondary, marginTop: GRID }} onClick={clearFilters}>
+              Limpar filtros
+            </button>
+          ) : canCreateAssessment ? (
             <Link
-              to="/school/trainings/new"
+              to="/school/assessments/new"
               style={{ ...styles.btn, ...styles.btnPrimary, textDecoration: 'none', display: 'inline-block', marginTop: GRID }}
               className="btn-hover"
             >
-              Novo treino
+              Aplicar avaliação
             </Link>
-          )}
+          ) : null}
         </div>
       )}
 
@@ -588,19 +451,19 @@ export default function SchoolTrainings() {
               <thead>
                 <tr>
                   <th style={styles.th}>Data</th>
-                  <th style={styles.th}>Horário</th>
+                  <th style={styles.th}>Aluno</th>
                   <th style={styles.th}>Turma</th>
-                  <th style={styles.th}>Título</th>
-                  <th style={styles.th}>Status</th>
-                  <th style={styles.th}></th>
+                  <th style={styles.th}>Tipo / Título</th>
+                  <th style={styles.th}>Resultado</th>
+                  <th style={styles.th}>Avaliador</th>
                 </tr>
               </thead>
               <tbody>
-                {items.map((training) => (
-                  <TrainingRow
-                    key={training.id}
-                    training={training}
-                    onNavigateToDetail={(id) => navigate(`/school/trainings/${id}`, { state: { fromListQuery } })}
+                {items.map((assessment) => (
+                  <AssessmentRow
+                    key={assessment.id}
+                    assessment={assessment}
+                    onNavigateToDetail={(id) => navigate(`/school/assessments/${id}`)}
                   />
                 ))}
               </tbody>
@@ -611,7 +474,7 @@ export default function SchoolTrainings() {
             <div style={styles.paginationInfo}>
               Página {data.page} de {totalPages}
               {' · '}
-              {total} {total === 1 ? 'treino' : 'treinos'}
+              {total} {total === 1 ? 'avaliação' : 'avaliações'}
               {' · '}
               Itens por página:
               <select

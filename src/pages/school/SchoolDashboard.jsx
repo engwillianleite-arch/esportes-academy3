@@ -377,12 +377,24 @@ export default function SchoolDashboard() {
                 Turmas
                 <IconArrowRight />
               </Link>
+              <Link to="/school/coaches" style={styles.atalhoLink} className="btn-hover">
+                Professores/Treinadores
+                <IconArrowRight />
+              </Link>
               <Link to="/school/trainings" style={styles.atalhoLink} className="btn-hover">
                 Treinos
                 <IconArrowRight />
               </Link>
+              <Link to="/school/assessments" style={styles.atalhoLink} className="btn-hover">
+                Avaliações
+                <IconArrowRight />
+              </Link>
               <Link to="/school/attendance" style={styles.atalhoLink} className="btn-hover">
                 Presença
+                <IconArrowRight />
+              </Link>
+              <Link to="/school/attendance/history" style={styles.atalhoLink} className="btn-hover">
+                Histórico de Presenças
                 <IconArrowRight />
               </Link>
               <Link to="/school/finance" style={styles.atalhoLink} className="btn-hover">

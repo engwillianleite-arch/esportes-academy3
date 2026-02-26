@@ -6,9 +6,11 @@ const GRID = 8
 const labels = {
   students: 'Alunos',
   teams: 'Turmas',
+  coaches: 'Professores/Treinadores',
   attendance: 'Presença',
   finance: 'Financeiro',
   events: 'Eventos',
+  assessments: 'Avaliações',
 }
 
 export default function SchoolPlaceholder() {

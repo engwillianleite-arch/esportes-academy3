@@ -67,7 +67,30 @@ import SchoolStudents from './pages/school/SchoolStudents'
 import SchoolStudentDetail from './pages/school/SchoolStudentDetail'
 import SchoolStudentCreateEdit from './pages/school/SchoolStudentCreateEdit'
 import SchoolPlaceholder from './pages/school/SchoolPlaceholder'
+import SchoolTeams from './pages/school/SchoolTeams'
+import SchoolTeamDetail from './pages/school/SchoolTeamDetail'
+import SchoolTeamCreateEdit from './pages/school/SchoolTeamCreateEdit'
 import SchoolTrainings from './pages/school/SchoolTrainings'
+import SchoolTrainingDetail from './pages/school/SchoolTrainingDetail'
+import SchoolTrainingCreateEdit from './pages/school/SchoolTrainingCreateEdit'
+import SchoolAttendance from './pages/school/SchoolAttendance'
+import SchoolAttendanceHistory from './pages/school/SchoolAttendanceHistory'
+import SchoolAssessments from './pages/school/SchoolAssessments'
+import SchoolAssessmentCreate from './pages/school/SchoolAssessmentCreate'
+import SchoolAssessmentDetail from './pages/school/SchoolAssessmentDetail'
+import SchoolFinance from './pages/school/SchoolFinance'
+import SchoolFinancePlaceholder from './pages/school/SchoolFinancePlaceholder'
+import SchoolInvoices from './pages/school/SchoolInvoices'
+import SchoolInvoiceDetail from './pages/school/SchoolInvoiceDetail'
+import SchoolOverdue from './pages/school/SchoolOverdue'
+import SchoolPaymentRegister from './pages/school/SchoolPaymentRegister'
+import SchoolFinanceSettings from './pages/school/SchoolFinanceSettings'
+import SchoolEvents from './pages/school/SchoolEvents'
+import SchoolEventDetail from './pages/school/SchoolEventDetail'
+import SchoolEventCreateEdit from './pages/school/SchoolEventCreateEdit'
+import SchoolCoaches from './pages/school/SchoolCoaches'
+import SchoolCoachDetail from './pages/school/SchoolCoachDetail'
+import SchoolCoachCreateEdit from './pages/school/SchoolCoachCreateEdit'
 
 export default function App() {
   return (
@@ -84,14 +107,33 @@ export default function App() {
         <Route path="/school/students/new" element={<SchoolStudentCreateEdit />} />
         <Route path="/school/students/:studentId" element={<SchoolStudentDetail />} />
         <Route path="/school/students/:studentId/edit" element={<SchoolStudentCreateEdit />} />
-        <Route path="/school/teams" element={<SchoolPlaceholder />} />
+        <Route path="/school/teams" element={<SchoolTeams />} />
+        <Route path="/school/teams/new" element={<SchoolTeamCreateEdit />} />
+        <Route path="/school/teams/:teamId" element={<SchoolTeamDetail />} />
+        <Route path="/school/teams/:teamId/edit" element={<SchoolTeamCreateEdit />} />
         <Route path="/school/trainings" element={<SchoolTrainings />} />
-        <Route path="/school/trainings/new" element={<SchoolPlaceholder />} />
-        <Route path="/school/trainings/:trainingId" element={<SchoolPlaceholder />} />
-        <Route path="/school/trainings/:trainingId/edit" element={<SchoolPlaceholder />} />
-        <Route path="/school/attendance" element={<SchoolPlaceholder />} />
-        <Route path="/school/finance" element={<SchoolPlaceholder />} />
-        <Route path="/school/events" element={<SchoolPlaceholder />} />
+        <Route path="/school/trainings/new" element={<SchoolTrainingCreateEdit />} />
+        <Route path="/school/trainings/:trainingId" element={<SchoolTrainingDetail />} />
+        <Route path="/school/trainings/:trainingId/edit" element={<SchoolTrainingCreateEdit />} />
+        <Route path="/school/attendance" element={<SchoolAttendance />} />
+        <Route path="/school/attendance/history" element={<SchoolAttendanceHistory />} />
+        <Route path="/school/assessments" element={<SchoolAssessments />} />
+        <Route path="/school/assessments/new" element={<SchoolAssessmentCreate />} />
+        <Route path="/school/assessments/:assessmentId" element={<SchoolAssessmentDetail />} />
+        <Route path="/school/finance" element={<SchoolFinance />} />
+        <Route path="/school/finance/invoices" element={<SchoolInvoices />} />
+        <Route path="/school/finance/invoices/:invoiceId" element={<SchoolInvoiceDetail />} />
+        <Route path="/school/finance/overdue" element={<SchoolOverdue />} />
+        <Route path="/school/finance/payments/new" element={<SchoolPaymentRegister />} />
+        <Route path="/school/finance/settings" element={<SchoolFinanceSettings />} />
+        <Route path="/school/events" element={<SchoolEvents />} />
+        <Route path="/school/events/new" element={<SchoolEventCreateEdit />} />
+        <Route path="/school/events/:eventId" element={<SchoolEventDetail />} />
+        <Route path="/school/events/:eventId/edit" element={<SchoolEventCreateEdit />} />
+        <Route path="/school/coaches" element={<SchoolCoaches />} />
+        <Route path="/school/coaches/new" element={<SchoolCoachCreateEdit />} />
+        <Route path="/school/coaches/:coachId" element={<SchoolCoachDetail />} />
+        <Route path="/school/coaches/:coachId/edit" element={<SchoolCoachCreateEdit />} />
 
         {/* Portal Franqueador */}
       <Route path="/franchisor/dashboard" element={<FranchisorDashboard />} />

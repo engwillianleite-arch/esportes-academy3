@@ -563,6 +563,24 @@ export default function SchoolStudentDetail() {
                 <IconArrowRight />
               </Link>
               <Link
+                to={`/school/assessments/new?studentId=${student.id}`}
+                style={styles.opsCard}
+                className="btn-hover"
+              >
+                <span style={styles.opsCardIcon}><IconAttendance /></span>
+                Aplicar avaliação
+                <IconArrowRight />
+              </Link>
+              <Link
+                to={`/school/attendance/history?studentId=${student.id}`}
+                style={styles.opsCard}
+                className="btn-hover"
+              >
+                <span style={styles.opsCardIcon}><IconAttendance /></span>
+                Histórico de Presenças
+                <IconArrowRight />
+              </Link>
+              <Link
                 to={`/school/finance?studentId=${student.id}`}
                 style={styles.opsCard}
                 className="btn-hover"
