@@ -91,6 +91,13 @@ import SchoolEventCreateEdit from './pages/school/SchoolEventCreateEdit'
 import SchoolCoaches from './pages/school/SchoolCoaches'
 import SchoolCoachDetail from './pages/school/SchoolCoachDetail'
 import SchoolCoachCreateEdit from './pages/school/SchoolCoachCreateEdit'
+import SchoolAnnouncements from './pages/school/SchoolAnnouncements'
+import SchoolAnnouncementCreate from './pages/school/SchoolAnnouncementCreate'
+import SchoolAnnouncementDetail from './pages/school/SchoolAnnouncementDetail'
+import SchoolAnnouncementHistory from './pages/school/SchoolAnnouncementHistory'
+import SchoolReports from './pages/school/SchoolReports'
+import SchoolReportDetail from './pages/school/SchoolReportDetail'
+import SchoolReportExports from './pages/school/SchoolReportExports'
 
 export default function App() {
   return (
@@ -103,6 +110,9 @@ export default function App() {
 
         {/* Portal Escola — destino pós-login quando portal = SCHOOL */}
         <Route path="/school/dashboard" element={<SchoolDashboard />} />
+        <Route path="/school/reports" element={<SchoolReports />} />
+        <Route path="/school/reports/exports" element={<SchoolReportExports />} />
+        <Route path="/school/reports/:reportKey" element={<SchoolReportDetail />} />
         <Route path="/school/students" element={<SchoolStudents />} />
         <Route path="/school/students/new" element={<SchoolStudentCreateEdit />} />
         <Route path="/school/students/:studentId" element={<SchoolStudentDetail />} />
@@ -134,6 +144,10 @@ export default function App() {
         <Route path="/school/coaches/new" element={<SchoolCoachCreateEdit />} />
         <Route path="/school/coaches/:coachId" element={<SchoolCoachDetail />} />
         <Route path="/school/coaches/:coachId/edit" element={<SchoolCoachCreateEdit />} />
+        <Route path="/school/announcements" element={<SchoolAnnouncements />} />
+        <Route path="/school/announcements/new" element={<SchoolAnnouncementCreate />} />
+        <Route path="/school/announcements/:announcementId" element={<SchoolAnnouncementDetail />} />
+        <Route path="/school/announcements/:announcementId/history" element={<SchoolAnnouncementHistory />} />
 
         {/* Portal Franqueador */}
       <Route path="/franchisor/dashboard" element={<FranchisorDashboard />} />

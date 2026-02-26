@@ -72,6 +72,369 @@ export async function getSchoolDashboardSummary() {
   return data
 }
 
+// --- Relatórios operacionais — contrato GET /school/reports/:reportKey ---
+
+const USE_MOCK_REPORTS = true // remover quando o backend existir
+
+/**
+ * Mock: gera dados de relatório conforme reportKey e params.
+ * Contrato retorno: report, filters_applied, summary, columns, rows, drilldown?, page, page_size, total
+ */
+function mockSchoolReport(reportKey, params) {
+  const page = Math.max(1, parseInt(params.page, 10) || 1)
+  const pageSize = Math.min(50, Math.max(10, parseInt(params.page_size, 10) || 25))
+  const fromDate = params.from_date || ''
+  const toDate = params.to_date || ''
+  const teamId = params.team_id || ''
+  const studentId = params.student_id || ''
+  const status = params.status || ''
+
+  const schoolName = MOCK_SUMMARY?.school_name || 'Arena São Paulo'
+  const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
+  const report = { key: reportKey, title: reportKey, generated_at: now }
+
+  const filters_applied = {
+    ...(fromDate && { from_date: fromDate }),
+    ...(toDate && { to_date: toDate }),
+    ...(teamId && { team_id: teamId }),
+    ...(studentId && { student_id: studentId }),
+    ...(status && { status }),
+  }
+
+  if (reportKey === 'students_active') {
+    const summary = [
+      { key: 'total', label: 'Total', value: 120 },
+      { key: 'active', label: 'Ativos', value: 115 },
+      { key: 'inactive', label: 'Inativos', value: 5 },
+    ]
+    const columns = [
+      { key: 'name', label: 'Nome', type: 'string' },
+      { key: 'status', label: 'Status', type: 'string' },
+      { key: 'teams', label: 'Turma(s)', type: 'string' },
+      { key: 'contact', label: 'Contato', type: 'string' },
+    ]
+    const drilldown = [{ column_key: 'name', action_type: 'student', target_route_template: '/school/students/:student_id' }]
+    const baseRows = [
+      { student_id: 's1', name: 'Ana Silva', status: 'Ativo', teams: 'Turma A', contact: '(11) 99999-0001' },
+      { student_id: 's2', name: 'Bruno Santos', status: 'Ativo', teams: 'Turma A, Turma B', contact: '(11) 99999-0002' },
+      { student_id: 's3', name: 'Carla Oliveira', status: 'Ativo', teams: 'Turma B', contact: '(11) 99999-0003' },
+      { student_id: 's4', name: 'Diego Lima', status: 'Inativo', teams: 'Turma C', contact: '(11) 99999-0004' },
+      { student_id: 's5', name: 'Elena Costa', status: 'Ativo', teams: 'Turma A', contact: '(11) 99999-0005' },
+      { student_id: 's6', name: 'Felipe Souza', status: 'Ativo', teams: 'Turma C', contact: '(11) 99999-0006' },
+      { student_id: 's7', name: 'Gabriela Rocha', status: 'Ativo', teams: 'Turma B', contact: '(11) 99999-0007' },
+      { student_id: 's8', name: 'Henrique Alves', status: 'Ativo', teams: 'Turma A', contact: '(11) 99999-0008' },
+    ]
+    const total = baseRows.length
+    const start = (page - 1) * pageSize
+    const rows = baseRows.slice(start, start + pageSize)
+    return { report, filters_applied, summary, columns, rows, drilldown, page, page_size: pageSize, total }
+  }
+
+  if (reportKey === 'students_by_team') {
+    const summary = [
+      { key: 'teams_count', label: 'Turmas', value: 4 },
+      { key: 'students_total', label: 'Total de alunos', value: 67 },
+    ]
+    const columns = [
+      { key: 'team_name', label: 'Turma', type: 'string' },
+      { key: 'students_count', label: 'Qtd alunos', type: 'number' },
+    ]
+    const drilldown = [{ column_key: 'team_name', action_type: 'team', target_route_template: '/school/teams/:team_id' }]
+    const baseRows = [
+      { team_id: 't1', team_name: 'Turma A - Iniciantes', students_count: 18 },
+      { team_id: 't2', team_name: 'Turma B - Intermediários', students_count: 22 },
+      { team_id: 't3', team_name: 'Turma C - Avançados', students_count: 15 },
+      { team_id: 't4', team_name: 'Turma Kids', students_count: 12 },
+    ]
+    const total = baseRows.length
+    const start = (page - 1) * pageSize
+    const rows = baseRows.slice(start, start + pageSize)
+    return { report, filters_applied, summary, columns, rows, drilldown, page, page_size: pageSize, total }
+  }
+
+  if (reportKey === 'attendance_by_team' || reportKey === 'attendance_by_student') {
+    const summary = [
+      { key: 'total_sessions', label: 'Aulas no período', value: 24 },
+      { key: 'total_presences', label: 'Presenças', value: 312 },
+      { key: 'attendance_pct', label: '% presença', value: '78%' },
+    ]
+    const columns =
+      reportKey === 'attendance_by_team'
+        ? [
+            { key: 'team_name', label: 'Turma', type: 'string' },
+            { key: 'sessions', label: 'Aulas', type: 'number' },
+            { key: 'presences', label: 'Presenças', type: 'number' },
+            { key: 'pct', label: '% presença', type: 'string' },
+          ]
+        : [
+            { key: 'student_name', label: 'Aluno', type: 'string' },
+            { key: 'team_name', label: 'Turma', type: 'string' },
+            { key: 'presences', label: 'Presenças', type: 'number' },
+            { key: 'pct', label: '% presença', type: 'string' },
+          ]
+    const drilldown =
+      reportKey === 'attendance_by_team'
+        ? [{ column_key: 'team_name', action_type: 'team', target_route_template: '/school/trainings?teamId=:team_id' }]
+        : [{ column_key: 'student_name', action_type: 'student', target_route_template: '/school/students/:student_id' }]
+    const baseRows =
+      reportKey === 'attendance_by_team'
+        ? [
+            { team_id: 't1', team_name: 'Turma A - Iniciantes', sessions: 8, presences: 142, pct: '88%' },
+            { team_id: 't2', team_name: 'Turma B - Intermediários', sessions: 8, presences: 98, pct: '56%' },
+            { team_id: 't3', team_name: 'Turma C - Avançados', sessions: 8, presences: 72, pct: '60%' },
+          ]
+        : [
+            { student_id: 's1', student_name: 'Ana Silva', team_name: 'Turma A', presences: 8, pct: '100%' },
+            { student_id: 's2', student_name: 'Bruno Santos', team_name: 'Turma A', presences: 6, pct: '75%' },
+            { student_id: 's3', student_name: 'Carla Oliveira', team_name: 'Turma B', presences: 7, pct: '88%' },
+          ]
+    const total = baseRows.length
+    const start = (page - 1) * pageSize
+    const rows = baseRows.slice(start, start + pageSize)
+    return { report, filters_applied, summary, columns, rows, drilldown, page, page_size: pageSize, total }
+  }
+
+  if (reportKey === 'monthly_summary') {
+    const summary = [
+      { key: 'total_expected', label: 'Total previsto', value: 'R$ 12.500,00' },
+      { key: 'total_received', label: 'Recebido', value: 'R$ 9.000,00' },
+      { key: 'total_open', label: 'Em aberto', value: 'R$ 2.700,00' },
+      { key: 'total_overdue', label: 'Em atraso', value: 'R$ 800,00' },
+    ]
+    const columns = [
+      { key: 'competence', label: 'Competência', type: 'string' },
+      { key: 'total_expected', label: 'Previsto', type: 'currency' },
+      { key: 'received', label: 'Recebido', type: 'currency' },
+      { key: 'open', label: 'Em aberto', type: 'currency' },
+      { key: 'overdue', label: 'Em atraso', type: 'currency' },
+    ]
+    const baseRows = [
+      {
+        competence: params.month || '2025-02',
+        total_expected: 12500,
+        received: 9000,
+        open: 2700,
+        overdue: 800,
+        overdue_count: 2,
+      },
+    ]
+    const total = baseRows.length
+    const rows = baseRows
+    return { report, filters_applied, summary, columns, rows, page: 1, page_size: pageSize, total }
+  }
+
+  if (reportKey === 'delinquency') {
+    const summary = [
+      { key: 'total_overdue', label: 'Total em atraso', value: 'R$ 800,00' },
+      { key: 'count', label: 'Mensalidades em atraso', value: 2 },
+    ]
+    const columns = [
+      { key: 'student_name', label: 'Aluno', type: 'string' },
+      { key: 'due_date', label: 'Vencimento', type: 'date' },
+      { key: 'days_overdue', label: 'Dias atraso', type: 'number' },
+      { key: 'amount', label: 'Valor', type: 'currency' },
+    ]
+    const drilldown = [
+      { column_key: 'student_name', action_type: 'invoice', target_route_template: '/school/finance/invoices/:invoice_id' },
+    ]
+    const baseRows = [
+      { invoice_id: 'inv1', student_id: 's1', student_name: 'Ana Silva', due_date: '2025-01-10', days_overdue: 48, amount: 350 },
+      { invoice_id: 'inv2', student_id: 's3', student_name: 'Carla Oliveira', due_date: '2025-02-10', days_overdue: 17, amount: 450 },
+    ]
+    const total = baseRows.length
+    const start = (page - 1) * pageSize
+    const rows = baseRows.slice(start, start + pageSize)
+    return { report, filters_applied, summary, columns, rows, drilldown, page, page_size: pageSize, total }
+  }
+
+  // fallback genérico
+  const summary = [{ key: 'total', label: 'Total', value: 0 }]
+  const columns = [{ key: 'id', label: 'ID', type: 'string' }]
+  const rows = []
+  return { report, filters_applied, summary, columns, rows, page: 1, page_size: pageSize, total: 0 }
+}
+
+/**
+ * Gera relatório operacional (school_id derivado da sessão).
+ * GET /school/reports/:reportKey?from_date=&to_date=&team_id=&student_id=&status=&page=&page_size=&sort=
+ * Retorno: { report: { key, title, generated_at }, filters_applied, summary: [{ key, label, value }], columns: [{ key, label, type }], rows: [...], drilldown?: [...], page, page_size, total }
+ */
+export async function getSchoolReport(reportKey, params = {}) {
+  if (USE_MOCK_REPORTS) {
+    await new Promise((r) => setTimeout(r, 600))
+    return mockSchoolReport(reportKey, params)
+  }
+  const search = new URLSearchParams()
+  if (params.from_date) search.set('from_date', params.from_date)
+  if (params.to_date) search.set('to_date', params.to_date)
+  if (params.team_id) search.set('team_id', params.team_id)
+  if (params.student_id) search.set('student_id', params.student_id)
+  if (params.status) search.set('status', params.status)
+  if (params.month) search.set('month', params.month)
+  if (params.page) search.set('page', String(params.page))
+  if (params.page_size) search.set('page_size', String(params.page_size))
+  if (params.sort) search.set('sort', params.sort)
+  const res = await fetch(
+    `${API_BASE}/school/reports/${encodeURIComponent(reportKey)}?${search}`,
+    { method: 'GET', credentials: 'include' }
+  )
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível gerar o relatório.')
+    err.code = data.code
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+// --- Exportações de relatórios (CSV/PDF) — Fase 2 ---
+// POST /school/reports/exports | GET /school/reports/exports | GET /school/reports/exports/:exportId/download
+
+const USE_MOCK_EXPORTS = true // remover quando o backend existir
+
+const MOCK_EXPORT_ITEMS = [
+  {
+    export_id: 'exp1',
+    report_key: 'students_active',
+    report_title: 'Alunos ativos',
+    format: 'csv',
+    status: 'ready',
+    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+    created_by: { user_id: 'u1', name: 'Maria Silva' },
+    error_message: null,
+    download_url: null,
+  },
+  {
+    export_id: 'exp2',
+    report_key: 'monthly_summary',
+    report_title: 'Mensalidades do mês (resumo)',
+    format: 'pdf',
+    status: 'processing',
+    created_at: new Date(Date.now() - 3600000).toISOString(),
+    created_by: { user_id: 'u1', name: 'Maria Silva' },
+    error_message: null,
+    download_url: null,
+  },
+  {
+    export_id: 'exp3',
+    report_key: 'delinquency',
+    report_title: 'Inadimplência (período/mês)',
+    format: 'csv',
+    status: 'failed',
+    created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
+    created_by: { user_id: 'u2', name: 'João Santos' },
+    error_message: 'Timeout na geração',
+    download_url: null,
+  },
+]
+
+/** Relatórios que suportam PDF (demais só CSV). */
+const REPORTS_WITH_PDF = ['students_active', 'students_by_team', 'monthly_summary', 'delinquency']
+
+/**
+ * Cria uma nova exportação.
+ * POST /school/reports/exports
+ * Body: { report_key, format: "csv"|"pdf", filters: {}, file_name? }
+ * Retorno: { export_id, status: "processing", created_at }
+ */
+export async function createSchoolReportExport(body) {
+  if (USE_MOCK_EXPORTS) {
+    await new Promise((r) => setTimeout(r, 500))
+    const id = 'exp-mock-' + Date.now()
+    return {
+      export_id: id,
+      status: 'processing',
+      created_at: new Date().toISOString(),
+    }
+  }
+  const res = await fetch(`${API_BASE}/school/reports/exports`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      report_key: body.report_key,
+      format: body.format,
+      filters: body.filters || {},
+      ...(body.file_name && { file_name: body.file_name }),
+    }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível gerar a exportação.')
+    err.code = data.code
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+/**
+ * Lista exportações do usuário/escola.
+ * GET /school/reports/exports?from_date=&to_date=&format=&status=&page=&page_size=
+ * Retorno: { items: [...], page, page_size, total }
+ */
+export async function listSchoolReportExports(params = {}) {
+  if (USE_MOCK_EXPORTS) {
+    await new Promise((r) => setTimeout(r, 400))
+    let items = [...MOCK_EXPORT_ITEMS]
+    if (params.format) {
+      items = items.filter((e) => e.format === params.format)
+    }
+    if (params.status) {
+      items = items.filter((e) => e.status === params.status)
+    }
+    const page = Math.max(1, parseInt(params.page, 10) || 1)
+    const pageSize = Math.min(50, Math.max(10, parseInt(params.page_size, 10) || 25))
+    const start = (page - 1) * pageSize
+    const total = items.length
+    items = items.slice(start, start + pageSize)
+    return { items, page, page_size: pageSize, total }
+  }
+  const search = new URLSearchParams()
+  if (params.from_date) search.set('from_date', params.from_date)
+  if (params.to_date) search.set('to_date', params.to_date)
+  if (params.format) search.set('format', params.format)
+  if (params.status) search.set('status', params.status)
+  if (params.page) search.set('page', String(params.page))
+  if (params.page_size) search.set('page_size', String(params.page_size))
+  const res = await fetch(`${API_BASE}/school/reports/exports?${search}`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível listar as exportações.')
+    err.code = data.code
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+/**
+ * Verifica se o relatório suporta PDF (para desabilitar opção na UI).
+ */
+export function schoolReportSupportsPdf(reportKey) {
+  return REPORTS_WITH_PDF.includes(reportKey)
+}
+
+/**
+ * Baixar arquivo da exportação.
+ * GET /school/reports/exports/:exportId/download
+ * Retorno: stream do arquivo ou redirect; front pode abrir em nova aba ou usar link direto.
+ */
+export function getSchoolReportExportDownloadUrl(exportId) {
+  const base = API_BASE.replace(/\/$/, '')
+  return `${base}/school/reports/exports/${encodeURIComponent(exportId)}/download`
+}
+
+/** Abre o download em nova aba (para quando o backend retorna redirect ou stream com cookie). */
+export function downloadSchoolReportExport(exportId) {
+  const url = getSchoolReportExportDownloadUrl(exportId)
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
 /** Formata valor monetário (BRL). */
 export function formatCurrency(value) {
   if (value == null || Number.isNaN(Number(value))) return '—'
@@ -2789,6 +3152,415 @@ export async function cancelSchoolEvent(eventId, body = {}) {
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     const err = new Error(data.message || 'Não foi possível cancelar o evento. Tente novamente.')
+    err.code = data.code
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+// --- Comunicados / Mural — GET /school/announcements (school_id derivado da sessão) ---
+
+const USE_MOCK_ANNOUNCEMENTS = true // remover quando o backend existir
+
+/** Mock: dados completos dos comunicados (lista + detalhe). */
+const MOCK_ANNOUNCEMENTS_ALL = [
+    {
+      id: 'ann1',
+      title: 'Recesso de fim de ano',
+      content: 'Informamos que entre 23/12 e 05/01 não haverá aulas.\n\nDesejamos boas festas a todos e nos vemos em 2026.',
+      content_preview: 'Informamos que entre 23/12 e 05/01 não haverá aulas. Desejamos boas festas a todos.',
+      status: 'published',
+      published_at: '2025-12-15T10:00:00Z',
+      created_at: '2025-12-14T14:00:00Z',
+      author: { user_id: 'u1', name: 'Maria Silva' },
+      audience_summary: 'Todos',
+      audience: { mode: 'all' },
+    },
+    {
+      id: 'ann2',
+      title: 'Avaliação trimestral — Turma Iniciantes',
+      content: 'A avaliação será realizada nos dias 10 e 11/03.\n\nTrazer material de anotação e uniforme. Qualquer dúvida, falar com a secretaria.',
+      content_preview: 'A avaliação será realizada nos dias 10 e 11/03. Trazer material de anotação e uniforme.',
+      status: 'published',
+      published_at: '2025-02-28T09:00:00Z',
+      created_at: '2025-02-27T16:00:00Z',
+      author: { user_id: 'c1', name: 'Prof. Ricardo' },
+      audience_summary: 'Turma A - Iniciantes',
+      audience: { mode: 'teams', team_ids: ['t1'] },
+      audience_resolved: { teams: [{ id: 't1', name: 'Turma A - Iniciantes' }] },
+    },
+    {
+      id: 'ann3',
+      title: 'Novo horário da Turma B',
+      content: 'A partir de 01/03 a Turma B terá aulas às terças e quintas, 19h às 20h.\n\nPedimos que confirmem a presença.',
+      content_preview: 'A partir de 01/03 a Turma B terá aulas às terças e quintas, 19h às 20h.',
+      status: 'published',
+      published_at: '2025-02-20T11:00:00Z',
+      created_at: '2025-02-19T08:00:00Z',
+      author: { user_id: 'u1', name: 'Maria Silva' },
+      audience_summary: 'Turma B - Intermediários',
+      audience: { mode: 'teams', team_ids: ['t2'] },
+      audience_resolved: { teams: [{ id: 't2', name: 'Turma B - Intermediários' }] },
+    },
+    {
+      id: 'ann4',
+      title: 'Manutenção na piscina',
+      content: 'Entre 15 e 17/02 a piscina estará em manutenção.\n\nAulas de natação serão remarcadas. Em breve enviaremos o novo cronograma.',
+      content_preview: 'Entre 15 e 17/02 a piscina estará em manutenção. Aulas de natação serão remarcadas.',
+      status: 'published',
+      published_at: '2025-02-10T08:00:00Z',
+      created_at: '2025-02-09T17:00:00Z',
+      author: null,
+      audience_summary: 'Todos',
+      audience: { mode: 'all' },
+    },
+    {
+      id: 'ann5',
+      title: 'Rascunho: Campanha de matrículas',
+      content: 'Em breve divulgaremos a campanha de matrículas para o segundo semestre.\n\nFiquem atentos ao mural e ao e-mail.',
+      content_preview: 'Em breve divulgaremos a campanha de matrículas para o segundo semestre.',
+      status: 'draft',
+      published_at: null,
+      created_at: '2025-02-25T12:00:00Z',
+      author: { user_id: 'u1', name: 'Maria Silva' },
+      audience_summary: null,
+      audience: { mode: 'all' },
+    },
+  ]
+
+/**
+ * Mock: lista de comunicados com filtro por q, status, paginação.
+ * Contrato: items[], page, page_size, total; item: id, title, content_preview, status, published_at?, created_at, author? { user_id, name }, audience_summary?
+ */
+function mockAnnouncementsList(params = {}) {
+  const page = Math.max(1, Number(params.page) || 1)
+  const pageSize = Math.min(100, Math.max(1, Number(params.page_size) || 10))
+  const q = (params.q || '').trim().toLowerCase()
+  const statusFilter = (params.status || '').toLowerCase()
+
+  let filtered = MOCK_ANNOUNCEMENTS_ALL
+  if (q) {
+    filtered = filtered.filter(
+      (a) =>
+        (a.title || '').toLowerCase().includes(q) ||
+        (a.content_preview || '').toLowerCase().includes(q)
+    )
+  }
+  if (statusFilter === 'published') {
+    filtered = filtered.filter((a) => a.status === 'published')
+  } else if (statusFilter === 'draft') {
+    filtered = filtered.filter((a) => a.status === 'draft')
+  } else if (statusFilter === 'archived') {
+    filtered = filtered.filter((a) => a.status === 'archived')
+  }
+
+  const total = filtered.length
+  const start = (page - 1) * pageSize
+  const items = filtered.slice(start, start + pageSize)
+
+  return {
+    items,
+    page,
+    page_size: pageSize,
+    total,
+    school_name: MOCK_SUMMARY?.school_name || 'Arena São Paulo',
+  }
+}
+
+/**
+ * Lista comunicados da escola (school_id derivado da sessão).
+ * GET /school/announcements?q=&status=&audience_mode=&page=&page_size=&sort=
+ * Retorno: { items: [{ id, title, content_preview, status, published_at?, created_at, author? { user_id, name }, audience_summary? }], page, page_size, total }
+ */
+export async function getSchoolAnnouncements(params = {}) {
+  if (USE_MOCK_ANNOUNCEMENTS) {
+    await new Promise((r) => setTimeout(r, 450))
+    return mockAnnouncementsList(params)
+  }
+  const search = new URLSearchParams()
+  if (params.q) search.set('q', params.q)
+  if (params.status) search.set('status', params.status)
+  if (params.audience_mode) search.set('audience_mode', params.audience_mode)
+  if (params.page) search.set('page', String(params.page))
+  if (params.page_size) search.set('page_size', String(params.page_size))
+  if (params.sort) search.set('sort', params.sort)
+  const res = await fetch(`${API_BASE}/school/announcements?${search}`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível carregar os comunicados. Tente novamente.')
+    err.code = data.code
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+/**
+ * Criar comunicado. POST /school/announcements
+ * Body: title (obrigatório), content (obrigatório), status? ("published"|"draft"),
+ *   audience? { mode: "all"|"teams"|"students", team_ids?: [], student_ids?: [] }
+ * Retorno: { id, status, published_at? }
+ * school_id derivado da sessão no backend.
+ */
+export async function createSchoolAnnouncement(body) {
+  if (USE_MOCK_ANNOUNCEMENTS) {
+    await new Promise((r) => setTimeout(r, 500))
+    const id = 'ann-' + Date.now()
+    const now = new Date().toISOString()
+    const status = body.status || 'published'
+    const item = {
+      id,
+      title: body.title || '',
+      content: body.content || '',
+      content_preview: (body.content || '').slice(0, 120) + ((body.content || '').length > 120 ? '...' : ''),
+      status,
+      published_at: status === 'published' ? now : null,
+      created_at: now,
+      author: { user_id: 'current', name: 'Eu' },
+      audience_summary: body.audience?.mode === 'all' ? 'Todos' : body.audience?.mode === 'teams' ? `Turmas: ${(body.audience.team_ids || []).length} selecionada(s)` : `Alunos: ${(body.audience?.student_ids || []).length} selecionado(s)`,
+      audience: body.audience || { mode: 'all' },
+    }
+    MOCK_ANNOUNCEMENTS_ALL.unshift(item)
+    return {
+      id,
+      status,
+      published_at: status === 'published' ? now : undefined,
+    }
+  }
+  const res = await fetch(`${API_BASE}/school/announcements`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível publicar o comunicado. Tente novamente.')
+    err.status = res.status
+    err.code = data.code
+    throw err
+  }
+  return data
+}
+
+/**
+ * Detalhe de um comunicado. GET /school/announcements/:announcementId
+ * Retorno: id, school_id, title, content, status, created_at, published_at?, author? { user_id, name },
+ *   audience? { mode, team_ids?, student_ids? }, audience_resolved? { teams?, students? }
+ */
+export async function getSchoolAnnouncement(announcementId) {
+  if (USE_MOCK_ANNOUNCEMENTS) {
+    await new Promise((r) => setTimeout(r, 350))
+    const item = MOCK_ANNOUNCEMENTS_ALL.find((a) => a.id === announcementId)
+    if (!item) {
+      const err = new Error('Comunicado não encontrado.')
+      err.status = 404
+      err.code = 'NOT_FOUND'
+      throw err
+    }
+    return {
+      id: item.id,
+      school_id: MOCK_SUMMARY?.school_id || 'e1',
+      school_name: MOCK_SUMMARY?.school_name || 'Arena São Paulo',
+      title: item.title,
+      content: item.content || item.content_preview || '',
+      status: item.status || 'published',
+      created_at: item.created_at,
+      published_at: item.published_at ?? null,
+      author: item.author ?? null,
+      audience: item.audience ?? { mode: 'all' },
+      audience_resolved: item.audience_resolved ?? null,
+    }
+  }
+  const res = await fetch(`${API_BASE}/school/announcements/${encodeURIComponent(announcementId)}`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível carregar o comunicado. Tente novamente.')
+    err.code = data.code
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+/**
+ * Arquivar comunicado. POST /school/announcements/:announcementId/archive (opcional MVP).
+ */
+export async function archiveSchoolAnnouncement(announcementId) {
+  if (USE_MOCK_ANNOUNCEMENTS) {
+    await new Promise((r) => setTimeout(r, 400))
+    const item = MOCK_ANNOUNCEMENTS_ALL.find((a) => a.id === announcementId)
+    if (!item) {
+      const err = new Error('Comunicado não encontrado.')
+      err.status = 404
+      throw err
+    }
+    item.status = 'archived'
+    return { ok: true }
+  }
+  const res = await fetch(`${API_BASE}/school/announcements/${encodeURIComponent(announcementId)}/archive`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível arquivar o comunicado.')
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+/**
+ * Excluir comunicado. DELETE /school/announcements/:announcementId (opcional MVP).
+ */
+export async function deleteSchoolAnnouncement(announcementId) {
+  if (USE_MOCK_ANNOUNCEMENTS) {
+    await new Promise((r) => setTimeout(r, 400))
+    const idx = MOCK_ANNOUNCEMENTS_ALL.findIndex((a) => a.id === announcementId)
+    if (idx === -1) {
+      const err = new Error('Comunicado não encontrado.')
+      err.status = 404
+      throw err
+    }
+    MOCK_ANNOUNCEMENTS_ALL.splice(idx, 1)
+    return { ok: true }
+  }
+  const res = await fetch(`${API_BASE}/school/announcements/${encodeURIComponent(announcementId)}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível excluir o comunicado.')
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+// --- Histórico de envio/leitura — GET /school/announcements/:announcementId/history (Fase 2) ---
+
+/** Mock: itens de histórico por announcementId. Contrato: items com recipient_type, recipient_name, team_names?, sent_at?, read_at?, status. */
+function mockAnnouncementHistoryItems(announcementId) {
+  const base = [
+    { recipient_type: 'guardian', student_id: 's1', recipient_name: 'Ana Costa (responsável)', team_ids: ['t1'], team_names: ['Turma A - Iniciantes'], sent_at: '2025-12-15T10:05:00Z', read_at: '2025-12-15T14:22:00Z', status: 'read' },
+    { recipient_type: 'guardian', student_id: 's2', recipient_name: 'Bruno Lima (responsável)', team_ids: ['t1'], team_names: ['Turma A - Iniciantes'], sent_at: '2025-12-15T10:05:00Z', read_at: null, status: 'unread' },
+    { recipient_type: 'student', student_id: 's3', recipient_name: 'Carlos Mendes', team_ids: ['t1'], team_names: ['Turma A - Iniciantes'], sent_at: '2025-12-15T10:05:00Z', read_at: '2025-12-16T09:00:00Z', status: 'read' },
+    { recipient_type: 'guardian', student_id: 's4', recipient_name: 'Diana Souza (responsável)', team_ids: ['t2'], team_names: ['Turma B - Intermediários'], sent_at: '2025-12-15T10:05:00Z', read_at: null, status: 'unread' },
+    { recipient_type: 'student', student_id: 's5', recipient_name: 'Eduardo Ferreira', team_ids: ['t2'], team_names: ['Turma B - Intermediários'], sent_at: '2025-12-15T10:05:00Z', read_at: '2025-12-15T18:30:00Z', status: 'read' },
+  ]
+  if (announcementId === 'ann2') {
+    return [
+      { recipient_type: 'guardian', student_id: 's1', recipient_name: 'Ana Costa (responsável)', team_ids: ['t1'], team_names: ['Turma A - Iniciantes'], sent_at: '2025-02-28T09:02:00Z', read_at: '2025-02-28T11:00:00Z', status: 'read' },
+      { recipient_type: 'student', student_id: 's3', recipient_name: 'Carlos Mendes', team_ids: ['t1'], team_names: ['Turma A - Iniciantes'], sent_at: '2025-02-28T09:02:00Z', read_at: null, status: 'unread' },
+    ]
+  }
+  return base
+}
+
+/**
+ * Histórico de envio e leitura de um comunicado.
+ * GET /school/announcements/:announcementId/history?q=&status=&team_id=&from_date=&to_date=&page=&page_size=&sort=
+ * Retorno: announcement { id, title, created_at, published_at? }, summary { recipients_total, read_count, unread_count, read_rate, last_read_at? }, items[], page, page_size, total.
+ * school_id derivado da sessão no backend.
+ */
+export async function getSchoolAnnouncementHistory(announcementId, params = {}) {
+  const useMock = USE_MOCK_ANNOUNCEMENTS
+  if (useMock) {
+    await new Promise((r) => setTimeout(r, 400))
+    const ann = MOCK_ANNOUNCEMENTS_ALL.find((a) => a.id === announcementId)
+    if (!ann) {
+      const err = new Error('Comunicado não encontrado.')
+      err.status = 404
+      err.code = 'NOT_FOUND'
+      throw err
+    }
+    const allItems = mockAnnouncementHistoryItems(announcementId)
+    const readCountTotal = allItems.filter((i) => i.status === 'read').length
+    const unreadCountTotal = allItems.filter((i) => i.status === 'unread').length
+    const allReadDates = allItems.filter((i) => i.read_at).map((i) => i.read_at)
+    const lastReadAt = allReadDates.length ? allReadDates.sort().reverse()[0] : null
+
+    let items = [...allItems]
+    const q = (params.q || '').trim().toLowerCase()
+    if (q) items = items.filter((i) => (i.recipient_name || '').toLowerCase().includes(q))
+    const statusFilter = (params.status || '').toLowerCase()
+    if (statusFilter === 'read') items = items.filter((i) => i.status === 'read')
+    else if (statusFilter === 'unread') items = items.filter((i) => i.status === 'unread')
+    if (params.team_id) items = items.filter((i) => (i.team_ids || []).includes(params.team_id))
+    if (params.from_date) {
+      const from = new Date(params.from_date)
+      items = items.filter((i) => i.sent_at && new Date(i.sent_at) >= from)
+    }
+    if (params.to_date) {
+      const to = new Date(params.to_date)
+      to.setHours(23, 59, 59, 999)
+      items = items.filter((i) => i.sent_at && new Date(i.sent_at) <= to)
+    }
+    const sort = (params.sort || 'unread_first').toLowerCase()
+    if (sort === 'unread_first') {
+      items.sort((a, b) => (a.status === 'unread' && b.status !== 'unread' ? -1 : a.status !== 'unread' && b.status === 'unread' ? 1 : 0))
+    } else if (sort === 'sent_desc') {
+      items.sort((a, b) => new Date(b.sent_at || 0) - new Date(a.sent_at || 0))
+    }
+    const total = items.length
+    const page = Math.max(1, Number(params.page) || 1)
+    const pageSize = Math.min(100, Math.max(1, Number(params.page_size) || 10))
+    const start = (page - 1) * pageSize
+    const paginatedItems = items.slice(start, start + pageSize)
+
+    const teamOptions = []
+    const seenIds = new Set()
+    allItems.forEach((i) => {
+      (i.team_ids || []).forEach((tid, idx) => {
+        if (tid && !seenIds.has(tid)) {
+          seenIds.add(tid)
+          teamOptions.push({ id: tid, name: (i.team_names || [])[idx] || tid })
+        }
+      })
+    })
+
+    return {
+      announcement: { id: ann.id, title: ann.title, created_at: ann.created_at, published_at: ann.published_at },
+      school_name: MOCK_SUMMARY?.school_name || 'Arena São Paulo',
+      summary: {
+        recipients_total: allItems.length,
+        read_count: readCountTotal,
+        unread_count: unreadCountTotal,
+        read_rate: allItems.length ? readCountTotal / allItems.length : 0,
+        last_read_at: lastReadAt,
+      },
+      teams: teamOptions,
+      items: paginatedItems,
+      page,
+      page_size: pageSize,
+      total,
+    }
+  }
+  const search = new URLSearchParams()
+  if (params.q) search.set('q', params.q)
+  if (params.status) search.set('status', params.status)
+  if (params.team_id) search.set('team_id', params.team_id)
+  if (params.from_date) search.set('from_date', params.from_date)
+  if (params.to_date) search.set('to_date', params.to_date)
+  if (params.page) search.set('page', String(params.page))
+  if (params.page_size) search.set('page_size', String(params.page_size))
+  if (params.sort) search.set('sort', params.sort)
+  const res = await fetch(`${API_BASE}/school/announcements/${encodeURIComponent(announcementId)}/history?${search}`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível carregar o histórico. Tente novamente.')
     err.code = data.code
     err.status = res.status
     throw err

@@ -369,6 +369,10 @@ export default function SchoolDashboard() {
           <section style={styles.section} aria-label="Atalhos rápidos">
             <h2 style={styles.sectionTitle}>Atalhos rápidos</h2>
             <div style={styles.atalhosGrid}>
+              <Link to="/school/reports" style={styles.atalhoLink} className="btn-hover">
+                Relatórios
+                <IconArrowRight />
+              </Link>
               <Link to="/school/students" style={styles.atalhoLink} className="btn-hover">
                 Alunos
                 <IconArrowRight />
@@ -403,6 +407,10 @@ export default function SchoolDashboard() {
               </Link>
               <Link to="/school/events" style={styles.atalhoLink} className="btn-hover">
                 Eventos
+                <IconArrowRight />
+              </Link>
+              <Link to="/school/announcements" style={styles.atalhoLink} className="btn-hover">
+                Comunicados / Mural
                 <IconArrowRight />
               </Link>
             </div>
