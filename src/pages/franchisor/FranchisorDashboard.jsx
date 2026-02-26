@@ -363,16 +363,32 @@ export default function FranchisorDashboard() {
                 Ver escolas
                 <IconArrowRight />
               </Link>
+              <Link to="/franchisor/settings/profile" style={styles.atalhoLink} className="btn-hover">
+                Configurações
+                <IconArrowRight />
+              </Link>
               <Link to="/franchisor/users" style={styles.atalhoLink} className="btn-hover">
                 Usuários
+                <IconArrowRight />
+              </Link>
+              <Link to="/franchisor/permissions" style={styles.atalhoLink} className="btn-hover">
+                Permissões
                 <IconArrowRight />
               </Link>
               <Link to="/franchisor/campaigns" style={styles.atalhoLink} className="btn-hover">
                 Campanhas
                 <IconArrowRight />
               </Link>
+              <Link to="/franchisor/finance" style={styles.atalhoLink} className="btn-hover">
+                Financeiro
+                <IconArrowRight />
+              </Link>
               <Link to="/franchisor/reports" style={styles.atalhoLink} className="btn-hover">
                 Relatórios consolidados
+                <IconArrowRight />
+              </Link>
+              <Link to="/franchisor/exports" style={styles.atalhoLink} className="btn-hover">
+                Exportações
                 <IconArrowRight />
               </Link>
               <Link to="/franchisor/standards/methodology" style={styles.atalhoLink} className="btn-hover">

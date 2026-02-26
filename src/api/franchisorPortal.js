@@ -222,6 +222,355 @@ export async function getFranchisorDashboardSummary(schoolId = null) {
   return { ...MOCK_SUMMARY_ALL }
 }
 
+// --- Relatórios consolidados (por escola/período) ---
+// GET /franchisor/reports/summary — params: from, to, school_id? (opcional)
+// GET /franchisor/reports/by-school — params: from, to, school_status?, page, page_size, sort
+// Backend aplica franchisor_id + scope_school_ids em todas as agregações.
+
+// Mock: resumo por escola para relatórios (inclui attendances_count para MVP se existir)
+const MOCK_REPORTS_BY_SCHOOL_ROW = {
+  e1: { students_count: 120, teams_count: 8, received_total: 45000.0, overdue_total: 800.0, attendances_count: 320 },
+  e2: { students_count: 85, teams_count: 5, received_total: 0, overdue_total: 1200.0, attendances_count: 0 },
+  e3: { students_count: 0, teams_count: 0, received_total: null, overdue_total: null, attendances_count: null },
+  e4: { students_count: 45, teams_count: 3, received_total: 44450.0, overdue_total: 0, attendances_count: 90 },
+}
+
+/**
+ * GET /franchisor/reports/summary — KPIs do período (consolidado ou por escola).
+ * @param {{ from: string, to: string, school_id?: string }} params
+ * @returns { Promise<{ students_count?, teams_count?, received_total?, overdue_total?, attendances_count? }> }
+ */
+export async function getFranchisorReportsSummary(params = {}) {
+  await new Promise((r) => setTimeout(r, 400))
+  const scopeIds = MOCK_ME.scope_school_ids
+  let schools = applyScope([...MOCK_SCHOOLS], scopeIds)
+  const schoolId = params.school_id || null
+  if (schoolId) {
+    schools = schools.filter((s) => s.school_id === schoolId)
+    if (schools.length === 0) {
+      return { students_count: null, teams_count: null, received_total: null, overdue_total: null, attendances_count: null }
+    }
+    const row = MOCK_REPORTS_BY_SCHOOL_ROW[schoolId]
+    if (!row) return { students_count: null, teams_count: null, received_total: null, overdue_total: null, attendances_count: null }
+    return { ...row }
+  }
+  // Consolidado
+  let students_count = 0
+  let teams_count = 0
+  let received_total = 0
+  let overdue_total = 0
+  let attendances_count = 0
+  schools.forEach((s) => {
+    const row = MOCK_REPORTS_BY_SCHOOL_ROW[s.school_id]
+    if (row) {
+      if (row.students_count != null) students_count += row.students_count
+      if (row.teams_count != null) teams_count += row.teams_count
+      if (row.received_total != null) received_total += row.received_total
+      if (row.overdue_total != null) overdue_total += row.overdue_total
+      if (row.attendances_count != null) attendances_count += row.attendances_count
+    }
+  })
+  return { students_count, teams_count, received_total, overdue_total, attendances_count }
+}
+
+/**
+ * GET /franchisor/reports/by-school — lista paginada por escola (comparativo).
+ * @param {{ from?: string, to?: string, school_status?: string, page?: number, page_size?: number, sort?: string }} params
+ * @returns {{ items: Array<{ school_id, school_name, school_status, students_count?, teams_count?, received_total?, overdue_total?, attendances_count? }>, total: number, page: number, page_size: number }}
+ */
+export async function getFranchisorReportsBySchool(params = {}) {
+  await new Promise((r) => setTimeout(r, 450))
+  const scopeIds = MOCK_ME.scope_school_ids
+  let items = applyScope([...MOCK_SCHOOLS], scopeIds).map((s) => {
+    const row = MOCK_REPORTS_BY_SCHOOL_ROW[s.school_id] || {}
+    return {
+      school_id: s.school_id,
+      school_name: s.school_name,
+      school_status: s.status || '',
+      students_count: row.students_count ?? null,
+      teams_count: row.teams_count ?? null,
+      received_total: row.received_total ?? null,
+      overdue_total: row.overdue_total ?? null,
+      attendances_count: row.attendances_count ?? null,
+    }
+  })
+
+  const statusFilter = (params.school_status || '').toLowerCase().trim()
+  if (statusFilter) {
+    const map = { ativa: 'ativo', ativo: 'ativo', pendente: 'pendente', suspensa: 'suspenso', suspenso: 'suspenso' }
+    const statusValue = map[statusFilter] || statusFilter
+    items = items.filter((s) => (s.school_status || '').toLowerCase() === statusValue)
+  }
+
+  const sortParam = (params.sort || 'received_total_desc').toLowerCase()
+  const hasReceived = items.some((i) => i.received_total != null)
+  const sortKey = hasReceived && (sortParam.startsWith('received') || sortParam === 'received_total_desc')
+    ? 'received_total'
+    : 'students_count'
+  const desc = sortParam.includes('_desc') || sortParam === 'received_total_desc' || sortParam === 'students_count_desc'
+  items = [...items].sort((a, b) => {
+    const va = a[sortKey] ?? -Infinity
+    const vb = b[sortKey] ?? -Infinity
+    return desc ? vb - va : va - vb
+  })
+
+  const total = items.length
+  const page = Math.max(1, parseInt(params.page, 10) || 1)
+  const pageSize = Math.min(50, Math.max(10, parseInt(params.page_size, 10) || 10))
+  const start = (page - 1) * pageSize
+  items = items.slice(start, start + pageSize)
+
+  return { items, total, page, page_size: pageSize }
+}
+
+// --- Detalhe do relatório por escola (drilldown) — Fase 2 ---
+// GET /franchisor/reports/schools/{school_id}/detail — params: from, to
+// Backend valida franchisor_id + scope_school_ids; auditoria Franchisor_ViewSchoolReportDetail.
+
+// Mock: drilldown por escola (summary + breakdowns opcionais)
+const MOCK_REPORT_DETAIL_ATTENDANCE = {
+  e1: { presencas_registradas: 320, faltas_registradas: 12, percentual_presenca: 96.4 },
+  e2: { presencas_registradas: 0, faltas_registradas: 0, percentual_presenca: null },
+  e3: { presencas_registradas: null, faltas_registradas: null, percentual_presenca: null },
+  e4: { presencas_registradas: 90, faltas_registradas: 3, percentual_presenca: 96.8 },
+}
+const MOCK_REPORT_DETAIL_FINANCE = {
+  e1: { received_total: 45000, em_aberto: 1200, em_atraso: 800, maior_atraso_dias: 15 },
+  e2: { received_total: 0, em_aberto: 800, em_atraso: 1200, maior_atraso_dias: 45 },
+  e3: { received_total: null, em_aberto: null, em_atraso: null, maior_atraso_dias: null },
+  e4: { received_total: 44450, em_aberto: 0, em_atraso: 0, maior_atraso_dias: null },
+}
+const MOCK_REPORT_DETAIL_TEAMS = {
+  e1: { qtde_turmas: 8, turmas_ativas: 8, capacidade_media: 15 },
+  e2: { qtde_turmas: 5, turmas_ativas: 4, capacidade_media: 17 },
+  e3: { qtde_turmas: 0, turmas_ativas: 0, capacidade_media: null },
+  e4: { qtde_turmas: 3, turmas_ativas: 3, capacidade_media: 15 },
+}
+
+/**
+ * GET /franchisor/reports/schools/{school_id}/detail
+ * @param {string} schoolId
+ * @param {{ from: string, to: string }} params
+ * @returns { Promise<{ school_name?: string, summary?: object, attendance_breakdown?: object, finance_breakdown?: object, teams_breakdown?: object }> }
+ */
+export async function getFranchisorReportSchoolDetail(schoolId, params = {}) {
+  await new Promise((r) => setTimeout(r, 400))
+  const scopeIds = MOCK_ME.scope_school_ids
+  let list = applyScope([...MOCK_SCHOOLS], scopeIds)
+  const school = list.find((s) => s.school_id === schoolId) || null
+  if (!school) {
+    const err = new Error('Escola não encontrada ou sem permissão.')
+    err.status = 404
+    throw err
+  }
+
+  const row = MOCK_REPORTS_BY_SCHOOL_ROW[schoolId] || {}
+  const summary = {
+    students_count: row.students_count ?? null,
+    teams_count: row.teams_count ?? null,
+    attendances_count: row.attendances_count ?? null,
+    received_total: row.received_total ?? null,
+    overdue_total: row.overdue_total ?? null,
+  }
+
+  const attendance = MOCK_REPORT_DETAIL_ATTENDANCE[schoolId]
+  const finance = MOCK_REPORT_DETAIL_FINANCE[schoolId]
+  const teams = MOCK_REPORT_DETAIL_TEAMS[schoolId]
+
+  return {
+    school_name: school.school_name,
+    summary: Object.keys(summary).some((k) => summary[k] != null) ? summary : undefined,
+    attendance_breakdown: attendance && (attendance.presencas_registradas != null || attendance.faltas_registradas != null) ? attendance : undefined,
+    finance_breakdown: finance && (finance.received_total != null || finance.em_atraso != null || finance.em_aberto != null) ? finance : undefined,
+    teams_breakdown: teams && (teams.qtde_turmas != null) ? teams : undefined,
+  }
+}
+
+// --- Financeiro consolidado (mensalidades / inadimplência por escola) ---
+// GET /franchisor/finance/summary — params: from, to, school_id?, status?, bucket?
+// GET /franchisor/finance/by-school — params: from, to, status?, bucket?, page, page_size, sort
+// GET /franchisor/finance/by-bucket (opcional) — params: from, to, school_id?
+// Backend aplica franchisor_id + scope_school_ids em toda consulta.
+
+const MOCK_FINANCE_BY_SCHOOL = {
+  e1: { received_total: 45000, open_total: 1200, overdue_total: 800, max_overdue_days: 15 },
+  e2: { received_total: 0, open_total: 800, overdue_total: 1200, max_overdue_days: 45 },
+  e3: { received_total: null, open_total: null, overdue_total: null, max_overdue_days: null },
+  e4: { received_total: 44450, open_total: 0, overdue_total: 0, max_overdue_days: null },
+}
+
+function delinquencyRate(received, open, overdue) {
+  const total = (received ?? 0) + (open ?? 0) + (overdue ?? 0)
+  if (total <= 0) return null
+  return ((overdue ?? 0) / total) * 100
+}
+
+/**
+ * GET /franchisor/finance/summary
+ * @param {{ from: string, to: string, school_id?: string, status?: string, bucket?: string }} params
+ * @returns { Promise<{ received_total, open_total, overdue_total, delinquency_rate }> }
+ */
+export async function getFranchisorFinanceSummary(params = {}) {
+  await new Promise((r) => setTimeout(r, 400))
+  const scopeIds = MOCK_ME.scope_school_ids
+  let schools = applyScope([...MOCK_SCHOOLS], scopeIds)
+  const schoolId = params.school_id || null
+  if (schoolId) {
+    schools = schools.filter((s) => s.school_id === schoolId)
+    if (schools.length === 0) {
+      return { received_total: 0, open_total: 0, overdue_total: 0, delinquency_rate: null }
+    }
+  }
+
+  let received_total = 0
+  let open_total = 0
+  let overdue_total = 0
+  schools.forEach((s) => {
+    const row = MOCK_FINANCE_BY_SCHOOL[s.school_id]
+    if (row) {
+      if (row.received_total != null) received_total += row.received_total
+      if (row.open_total != null) open_total += row.open_total
+      if (row.overdue_total != null) overdue_total += row.overdue_total
+    }
+  })
+
+  const rate = delinquencyRate(received_total, open_total, overdue_total)
+  return { received_total, open_total, overdue_total, delinquency_rate: rate }
+}
+
+/**
+ * GET /franchisor/finance/by-school (paginação)
+ * @param {{ from?: string, to?: string, status?: string, bucket?: string, page?: number, page_size?: number, sort?: string }} params
+ * @returns {{ items: Array<{ school_id, school_name, school_status, received_total, open_total, overdue_total, delinquency_rate, max_overdue_days? }>, total: number, page: number, page_size: number }}
+ */
+export async function getFranchisorFinanceBySchool(params = {}) {
+  await new Promise((r) => setTimeout(r, 450))
+  const scopeIds = MOCK_ME.scope_school_ids
+  let items = applyScope([...MOCK_SCHOOLS], scopeIds).map((s) => {
+    const row = MOCK_FINANCE_BY_SCHOOL[s.school_id] || {}
+    const received = row.received_total ?? 0
+    const open = row.open_total ?? 0
+    const overdue = row.overdue_total ?? 0
+    const rate = delinquencyRate(received, open, overdue)
+    return {
+      school_id: s.school_id,
+      school_name: s.school_name,
+      school_status: s.status || '',
+      received_total: row.received_total ?? null,
+      open_total: row.open_total ?? null,
+      overdue_total: row.overdue_total ?? null,
+      delinquency_rate: rate,
+      max_overdue_days: row.max_overdue_days ?? null,
+    }
+  })
+
+  const sortParam = (params.sort || 'overdue_total_desc').toLowerCase()
+  const sortKey = sortParam.startsWith('overdue') ? 'overdue_total' : sortParam.startsWith('received') ? 'received_total' : sortParam.startsWith('delinquency') ? 'delinquency_rate' : 'overdue_total'
+  const desc = sortParam.includes('_desc')
+  items = [...items].sort((a, b) => {
+    const va = a[sortKey] ?? -Infinity
+    const vb = b[sortKey] ?? -Infinity
+    return desc ? (vb - va) : (va - vb)
+  })
+
+  const total = items.length
+  const page = Math.max(1, parseInt(params.page, 10) || 1)
+  const pageSize = Math.min(50, Math.max(10, parseInt(params.page_size, 10) || 10))
+  const start = (page - 1) * pageSize
+  items = items.slice(start, start + pageSize)
+
+  return { items, total, page, page_size: pageSize }
+}
+
+const BUCKET_LABELS = [
+  { key: '1_7', label: '1–7 dias' },
+  { key: '8_30', label: '8–30 dias' },
+  { key: '31_60', label: '31–60 dias' },
+  { key: '61_plus', label: '61+ dias' },
+]
+
+/**
+ * GET /franchisor/finance/by-bucket (opcional MVP)
+ * @param {{ from?: string, to?: string, school_id?: string }} params
+ * @returns { Promise<Array<{ bucket_label: string, overdue_total: number, overdue_count: number }>> }
+ */
+export async function getFranchisorFinanceByBucket(params = {}) {
+  await new Promise((r) => setTimeout(r, 350))
+  const scopeIds = MOCK_ME.scope_school_ids
+  const schoolId = params.school_id || null
+  let schools = applyScope([...MOCK_SCHOOLS], scopeIds)
+  if (schoolId) schools = schools.filter((s) => s.school_id === schoolId)
+
+  const totals = { '1_7': { overdue_total: 200, overdue_count: 2 }, '8_30': { overdue_total: 800, overdue_count: 5 }, '31_60': { overdue_total: 600, overdue_count: 3 }, '61_plus': { overdue_total: 400, overdue_count: 1 } }
+  return BUCKET_LABELS.map((b) => ({
+    bucket_label: b.label,
+    overdue_total: totals[b.key]?.overdue_total ?? 0,
+    overdue_count: totals[b.key]?.overdue_count ?? 0,
+  }))
+}
+
+// --- Detalhe financeiro por escola (Fase 2) ---
+// GET /franchisor/finance/schools/{school_id}/summary — params: from, to, status?, bucket?
+// GET /franchisor/finance/schools/{school_id}/by-bucket — params: from, to (usa getFranchisorFinanceByBucket com school_id)
+// GET /franchisor/finance/schools/{school_id}/by-period — params: from, to, granularity=MONTH (opcional)
+
+/**
+ * GET /franchisor/finance/schools/{school_id}/summary
+ * Resumo financeiro de uma escola no período. Backend valida franchisor_id + scope_school_ids.
+ * @param {string} schoolId
+ * @param {{ from: string, to: string, status?: string, bucket?: string }} params
+ * @returns { Promise<{ received_total, open_total, overdue_total, delinquency_rate, max_overdue_days? }> }
+ */
+export async function getFranchisorFinanceSchoolSummary(schoolId, params = {}) {
+  const data = await getFranchisorFinanceSummary({
+    from: params.from,
+    to: params.to,
+    school_id: schoolId,
+    status: params.status || undefined,
+    bucket: params.bucket || undefined,
+  })
+  const row = MOCK_FINANCE_BY_SCHOOL[schoolId] || {}
+  return {
+    received_total: data.received_total ?? row.received_total ?? 0,
+    open_total: data.open_total ?? row.open_total ?? 0,
+    overdue_total: data.overdue_total ?? row.overdue_total ?? 0,
+    delinquency_rate: data.delinquency_rate ?? null,
+    max_overdue_days: row.max_overdue_days ?? null,
+  }
+}
+
+// Mock: evolução por mês (por escola) para by-period
+const MOCK_FINANCE_BY_PERIOD = {
+  e1: [
+    { period_label: '2026-01', received_total: 22000, overdue_total: 400 },
+    { period_label: '2026-02', received_total: 23000, overdue_total: 400 },
+  ],
+  e2: [
+    { period_label: '2026-01', received_total: 0, overdue_total: 600 },
+    { period_label: '2026-02', received_total: 0, overdue_total: 600 },
+  ],
+  e3: [],
+  e4: [
+    { period_label: '2026-01', received_total: 22225, overdue_total: 0 },
+    { period_label: '2026-02', received_total: 22225, overdue_total: 0 },
+  ],
+}
+
+/**
+ * GET /franchisor/finance/schools/{school_id}/by-period (opcional Fase 2)
+ * @param {string} schoolId
+ * @param {{ from?: string, to?: string, granularity?: string }} params
+ * @returns { Promise<Array<{ period_label: string, received_total: number, overdue_total: number }>> }
+ */
+export async function getFranchisorFinanceSchoolByPeriod(schoolId, params = {}) {
+  await new Promise((r) => setTimeout(r, 320))
+  const scopeIds = MOCK_ME.scope_school_ids
+  let list = applyScope([...MOCK_SCHOOLS], scopeIds)
+  if (!list.find((s) => s.school_id === schoolId)) return []
+  const items = MOCK_FINANCE_BY_PERIOD[schoolId] || []
+  return items.map((i) => ({ ...i }))
+}
+
 // --- Usuários do Franqueador (self-service) ---
 // GET /franchisor/users (paginação + filtros); GET /franchisor/users/{user_id}; POST /franchisor/users; PATCH /franchisor/users/{user_id}; DELETE /franchisor/users/{user_id}
 // Backend valida franchisor_id do usuário logado; policy e anti-escalonamento no backend.
@@ -1471,4 +1820,180 @@ export async function getFranchisorCampaignResultsBySchool(campaignId, params = 
   items = items.slice(start, start + pageSize)
 
   return { items, total }
+}
+
+// --- Permissões / Matriz de roles (Fase 2) ---
+const FRANCHISOR_OWNER_PERMISSIONS = [
+  'SCHOOLS_VIEW', 'SCHOOLS_VIEW_DETAIL', 'SCHOOLS_EDIT',
+  'STANDARDS_METHODOLOGY_VIEW', 'STANDARDS_METHODOLOGY_EDIT',
+  'STANDARDS_PRICING_VIEW', 'STANDARDS_PRICING_EDIT', 'STANDARDS_LIBRARY_VIEW',
+  'CAMPAIGNS_VIEW', 'CAMPAIGNS_EDIT', 'CAMPAIGNS_VIEW_RESULTS',
+  'USERS_VIEW', 'USERS_EDIT', 'USERS_REMOVE',
+  'REPORTS_VIEW', 'FINANCE_VIEW',
+  'SETTINGS_VIEW', 'SETTINGS_EDIT', 'PERMISSIONS_VIEW', 'PERMISSIONS_EDIT',
+]
+const FRANCHISOR_STAFF_DEFAULT_PERMISSIONS = [
+  'SCHOOLS_VIEW', 'SCHOOLS_VIEW_DETAIL',
+  'STANDARDS_METHODOLOGY_VIEW', 'STANDARDS_PRICING_VIEW', 'STANDARDS_LIBRARY_VIEW',
+  'CAMPAIGNS_VIEW', 'CAMPAIGNS_VIEW_RESULTS',
+  'USERS_VIEW',
+  'REPORTS_VIEW', 'FINANCE_VIEW',
+  'SETTINGS_VIEW', 'PERMISSIONS_VIEW',
+]
+const STAFF_CUSTOMIZABLE_WHITELIST = [
+  'SCHOOLS_EDIT',
+  'STANDARDS_METHODOLOGY_EDIT', 'STANDARDS_PRICING_EDIT',
+  'CAMPAIGNS_EDIT',
+]
+
+let MOCK_STAFF_CUSTOM_PERMISSIONS = null
+
+export async function getFranchisorPermissionsMatrix() {
+  await new Promise((r) => setTimeout(r, 350))
+  const staffPerms = MOCK_STAFF_CUSTOM_PERMISSIONS !== null
+    ? MOCK_STAFF_CUSTOM_PERMISSIONS
+    : FRANCHISOR_STAFF_DEFAULT_PERMISSIONS
+  return {
+    roles: [
+      { role: 'FranchisorOwner', permissions: [...FRANCHISOR_OWNER_PERMISSIONS] },
+      { role: 'FranchisorStaff', permissions: [...staffPerms] },
+    ],
+    modules_structure: [
+      { module: 'Escolas', items: [
+        { key: 'SCHOOLS_VIEW', label: 'Listar escolas' },
+        { key: 'SCHOOLS_VIEW_DETAIL', label: 'Ver detalhe da escola' },
+        { key: 'SCHOOLS_EDIT', label: 'Criar/editar escola' },
+      ]},
+      { module: 'Padrões', items: [
+        { key: 'STANDARDS_METHODOLOGY_VIEW', label: 'Metodologia (visualizar)' },
+        { key: 'STANDARDS_METHODOLOGY_EDIT', label: 'Metodologia (criar/editar)' },
+        { key: 'STANDARDS_PRICING_VIEW', label: 'Preços sugeridos (visualizar)' },
+        { key: 'STANDARDS_PRICING_EDIT', label: 'Preços sugeridos (criar/editar)' },
+        { key: 'STANDARDS_LIBRARY_VIEW', label: 'Biblioteca de padrões' },
+      ]},
+      { module: 'Campanhas', items: [
+        { key: 'CAMPAIGNS_VIEW', label: 'Listar campanhas' },
+        { key: 'CAMPAIGNS_EDIT', label: 'Criar/editar campanhas' },
+        { key: 'CAMPAIGNS_VIEW_RESULTS', label: 'Ver resultados' },
+      ]},
+      { module: 'Usuários', items: [
+        { key: 'USERS_VIEW', label: 'Listar usuários' },
+        { key: 'USERS_EDIT', label: 'Criar/editar usuários' },
+        { key: 'USERS_REMOVE', label: 'Remover acesso' },
+      ]},
+      { module: 'Relatórios e Financeiro', items: [
+        { key: 'REPORTS_VIEW', label: 'Ver relatórios consolidados' },
+        { key: 'FINANCE_VIEW', label: 'Ver financeiro' },
+      ]},
+      { module: 'Configurações', items: [
+        { key: 'SETTINGS_VIEW', label: 'Ver configurações' },
+        { key: 'SETTINGS_EDIT', label: 'Alterar configurações' },
+        { key: 'PERMISSIONS_VIEW', label: 'Ver matriz de permissões' },
+        { key: 'PERMISSIONS_EDIT', label: 'Personalizar permissões do Staff' },
+      ]},
+    ],
+    staff_customized: MOCK_STAFF_CUSTOM_PERMISSIONS !== null,
+    staff_customizable_whitelist: STAFF_CUSTOMIZABLE_WHITELIST,
+  }
+}
+
+export async function patchFranchisorStaffPermissions(payload) {
+  await new Promise((r) => setTimeout(r, 400))
+  const list = Array.isArray(payload.permissions) ? payload.permissions : []
+  const allowed = new Set(STAFF_CUSTOMIZABLE_WHITELIST)
+  const filtered = list.filter((p) => allowed.has(p))
+  MOCK_STAFF_CUSTOM_PERMISSIONS = filtered.length > 0 ? filtered : null
+  return { ok: true, staff_customized: MOCK_STAFF_CUSTOM_PERMISSIONS !== null }
+}
+
+export async function resetFranchisorStaffPermissions() {
+  await new Promise((r) => setTimeout(r, 300))
+  MOCK_STAFF_CUSTOM_PERMISSIONS = null
+  return { ok: true }
+}
+
+// --- Dados do Franqueador (perfil / marca) — GET /franchisor/settings/profile | PATCH ---
+// Backend: policy franchisor_id do usuário; somente Owner pode PATCH (recomendado).
+// Campos editáveis em whitelist; upload de logo opcional (POST /franchisor/settings/profile/logo).
+
+let MOCK_FRANCHISOR_PROFILE = {
+  franchisor_id: MOCK_ME.franchisor_id,
+  name: 'Rede Arena',
+  legal_name: 'Rede Arena Esportes Ltda.',
+  document_id: '12.345.678/0001-90',
+  website: 'https://redearena.com.br',
+  contact_email: 'contato@redearena.com.br',
+  contact_phone: '(11) 3456-7890',
+  address: {
+    street: 'Av. Paulista',
+    number: '1000',
+    complement: 'Sala 101',
+    city: 'São Paulo',
+    state: 'SP',
+    zip: '01310-100',
+  },
+  brand: {
+    display_name: 'Arena',
+    logo_url: 'https://placehold.co/120x60?text=Arena',
+    primary_color: null,
+    secondary_color: null,
+  },
+  message_to_schools: 'Bem-vindas ao portal. Em caso de dúvidas, utilize o canal de suporte.',
+  updated_at: '2024-02-20T14:30:00Z',
+}
+
+/**
+ * GET /franchisor/settings/profile
+ * Retorno: franchisor_id, name, legal_name?, document_id?, website?, contact_email?, contact_phone?,
+ * address? { street, number, complement, city, state, zip }, brand? { display_name?, logo_url?, primary_color?, secondary_color? },
+ * message_to_schools?, updated_at
+ */
+export async function getFranchisorSettingsProfile() {
+  await new Promise((r) => setTimeout(r, 350))
+  const p = MOCK_FRANCHISOR_PROFILE
+  return {
+    franchisor_id: p.franchisor_id,
+    name: p.name || '',
+    legal_name: p.legal_name ?? null,
+    document_id: p.document_id ?? null,
+    website: p.website ?? null,
+    contact_email: p.contact_email ?? null,
+    contact_phone: p.contact_phone ?? null,
+    address: p.address ? { ...p.address } : null,
+    brand: p.brand ? { ...p.brand } : null,
+    message_to_schools: p.message_to_schools ?? null,
+    updated_at: p.updated_at,
+  }
+}
+
+const FRANCHISOR_PROFILE_WHITELIST = [
+  'name', 'legal_name', 'document_id', 'website', 'contact_email', 'contact_phone',
+  'address', 'brand', 'message_to_schools',
+]
+
+/**
+ * PATCH /franchisor/settings/profile
+ * payload: apenas campos permitidos (whitelist). address e brand são objetos.
+ * Backend valida franchisor_id; somente Owner pode alterar (recomendado).
+ */
+export async function patchFranchisorSettingsProfile(payload) {
+  await new Promise((r) => setTimeout(r, 400))
+  const p = MOCK_FRANCHISOR_PROFILE
+  FRANCHISOR_PROFILE_WHITELIST.forEach((key) => {
+    if (payload[key] === undefined) return
+    if (key === 'address' && payload.address != null) {
+      p.address = { ...(p.address || {}), ...payload.address }
+      return
+    }
+    if (key === 'brand' && payload.brand != null) {
+      p.brand = { ...(p.brand || {}), ...payload.brand }
+      return
+    }
+    if (key !== 'address' && key !== 'brand') p[key] = payload[key]
+  })
+  p.updated_at = new Date().toISOString()
+  return {
+    franchisor_id: p.franchisor_id,
+    updated_at: p.updated_at,
+  }
 }

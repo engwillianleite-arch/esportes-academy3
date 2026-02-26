@@ -6,7 +6,15 @@ import {
   getFranchisorMe,
   formatCurrency,
 } from '../../api/franchisorPortal'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+
+function getDefaultReportPeriod() {
+  const now = new Date()
+  const to = new Date(now)
+  const from = new Date(now)
+  from.setDate(from.getDate() - 30)
+  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) }
+}
 
 const GRID = 8
 const ALLOWED_ROLES = ['FranchisorOwner', 'FranchisorStaff']
@@ -271,8 +279,11 @@ export default function DetalheEscolaFranqueador() {
   const isSuspended = statusLower === 'suspenso'
   const canOpenPortal = school?.can_access_school_portal && !isSuspended
 
-  const hasFinanceRoute = true   // link existe; rota pode ser criada depois
-  const hasReportsRoute = true  // /franchisor/reports já existe
+  const hasFinanceRoute = true
+  const hasReportsRoute = true
+  const defaultReportPeriod = useMemo(getDefaultReportPeriod, [])
+  const reportDetailUrl = `/franchisor/reports/${school_id}?from=${defaultReportPeriod.from}&to=${defaultReportPeriod.to}`
+  const financeSchoolDetailUrl = `/franchisor/finance/schools/${school_id}?from=${defaultReportPeriod.from}&to=${defaultReportPeriod.to}`
 
   if (permissionDenied) return null
 
@@ -466,7 +477,7 @@ export default function DetalheEscolaFranqueador() {
               )}
               {hasFinanceRoute && (
                 <Link
-                  to={`/franchisor/finance?school_id=${school_id}`}
+                  to={financeSchoolDetailUrl}
                   style={styles.atalhoLink}
                   className="btn-hover"
                 >
@@ -475,7 +486,7 @@ export default function DetalheEscolaFranqueador() {
               )}
               {hasReportsRoute && (
                 <Link
-                  to={`/franchisor/reports?school_id=${school_id}`}
+                  to={reportDetailUrl}
                   style={styles.atalhoLink}
                   className="btn-hover"
                 >

@@ -285,9 +285,15 @@ export default function FranchisorLayout({ children, pageTitle, breadcrumb = [] 
   const isOnboardingPath = location.pathname.includes('/onboarding')
   const schoolIdFromQuery = searchParams.get('school_id') || null
   const rawSchoolId = schoolIdFromQuery || schoolIdFromPath
-  // Na tela de Usuários do Franqueador, fixar em "Todas as escolas" (gestão é do franqueador).
-  const isUsersPage = location.pathname === '/franchisor/users'
-  const schoolId = isUsersPage ? null : rawSchoolId
+  // Na tela de Usuários e Permissões, fixar em "Todas as escolas" (gestão é do franqueador).
+  const isUsersPage = location.pathname === '/franchisor/users' ||
+    location.pathname === '/franchisor/users/new' ||
+    /^\/franchisor\/users\/[^/]+\/edit$/.test(location.pathname)
+  const isPermissionsPage = location.pathname === '/franchisor/permissions'
+  const isSettingsProfilePage = location.pathname === '/franchisor/settings/profile'
+  const isReportDetailPage = /^\/franchisor\/reports\/[^/]+$/.test(location.pathname)
+  const isFinanceSchoolDetailPage = /^\/franchisor\/finance\/schools\/[^/]+$/.test(location.pathname)
+  const schoolId = (isUsersPage || isPermissionsPage || isSettingsProfilePage) ? null : rawSchoolId
   const [schools, setSchools] = useState([])
   const [schoolsLoading, setSchoolsLoading] = useState(true)
 
@@ -301,8 +307,42 @@ export default function FranchisorLayout({ children, pageTitle, breadcrumb = [] 
   }, [])
 
   const handleSelectSchool = (id) => {
-    if (isUsersPage) return // Usuários: switcher fixo em "Todas as escolas"
-    // Na tela de detalhe ou onboarding, trocar escola = ir para a mesma tela da nova escola
+    if (isUsersPage || isSettingsProfilePage) return // Usuários e Configurações: switcher fixo em "Todas as escolas"
+    // Detalhe financeiro por escola: trocar escola mantém período (from/to) e filtros
+    if (isFinanceSchoolDetailPage && id) {
+      const from = searchParams.get('from') || ''
+      const to = searchParams.get('to') || ''
+      const q = new URLSearchParams()
+      if (from) q.set('from', from)
+      if (to) q.set('to', to)
+      const period = searchParams.get('period')
+      if (period) q.set('period', period)
+      const status = searchParams.get('status')
+      if (status) q.set('status', status)
+      const bucket = searchParams.get('bucket')
+      if (bucket) q.set('bucket', bucket)
+      navigate(`/franchisor/finance/schools/${id}${q.toString() ? `?${q.toString()}` : ''}`, { replace: true })
+      return
+    }
+    if (isFinanceSchoolDetailPage && !id) {
+      navigate(`/franchisor/finance?${searchParams.toString()}`, { replace: true })
+      return
+    }
+    // Detalhe do relatório (drilldown): trocar escola mantém período (from/to)
+    if (isReportDetailPage && id) {
+      const from = searchParams.get('from') || ''
+      const to = searchParams.get('to') || ''
+      const q = new URLSearchParams()
+      if (from) q.set('from', from)
+      if (to) q.set('to', to)
+      navigate(`/franchisor/reports/${id}${q.toString() ? `?${q.toString()}` : ''}`, { replace: true })
+      return
+    }
+    if (isReportDetailPage && !id) {
+      navigate(`/franchisor/reports?${searchParams.toString()}`, { replace: true })
+      return
+    }
+    // Na tela de detalhe da escola ou onboarding, trocar escola = ir para a mesma tela da nova escola
     if (schoolIdFromPath) {
       if (id) {
         navigate(isOnboardingPath ? `/franchisor/schools/${id}/onboarding` : `/franchisor/schools/${id}`, { replace: true })
@@ -315,7 +355,8 @@ export default function FranchisorLayout({ children, pageTitle, breadcrumb = [] 
     if (id) next.set('school_id', id)
     else next.delete('school_id')
     setSearchParams(next, { replace: true })
-    if (!id) navigate('/franchisor/dashboard', { replace: true })
+    const isFinanceOrReports = location.pathname === '/franchisor/finance' || location.pathname === '/franchisor/reports'
+    if (!id && !isFinanceOrReports) navigate('/franchisor/dashboard', { replace: true })
   }
 
   return (
@@ -331,7 +372,7 @@ export default function FranchisorLayout({ children, pageTitle, breadcrumb = [] 
           />
         </div>
         <div style={styles.topbarRight}>
-          <Link to="/perfil" style={styles.topbarLink} aria-label="Meu perfil">
+          <Link to="/me" style={styles.topbarLink} aria-label="Meu perfil">
             <IconUser />
             Meu perfil
           </Link>

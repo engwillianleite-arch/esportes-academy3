@@ -377,6 +377,18 @@ function AdminLayoutInner({ children, breadcrumb = [], pageTitle }) {
         <header style={layoutStyles.header}>
           <div style={layoutStyles.headerContent}>
             <h1 style={layoutStyles.titulo}>{pageTitle || 'Admin'}</h1>
+            <Link
+              to="/me"
+              style={{
+                fontSize: 14,
+                fontWeight: 500,
+                color: 'var(--azul-arena)',
+                textDecoration: 'none',
+              }}
+              aria-label="Meu perfil"
+            >
+              Meu perfil
+            </Link>
           </div>
         </header>
         <main style={layoutStyles.main}>

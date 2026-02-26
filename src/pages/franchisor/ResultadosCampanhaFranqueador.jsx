@@ -79,6 +79,19 @@ const styles = {
     cursor: 'pointer',
     textDecoration: 'none',
   },
+  btnExport: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: GRID,
+    padding: `${GRID * 1.5}px ${GRID * 3}px`,
+    background: 'var(--azul-arena)',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 'var(--radius)',
+    fontSize: 14,
+    fontWeight: 600,
+    textDecoration: 'none',
+  },
   cardsRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
@@ -521,7 +534,7 @@ export default function ResultadosCampanhaFranqueador() {
                 <StatusBadge status={campaign.status} />
               </div>
             </div>
-            <div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: GRID * 2 }}>
               <Link
                 to={returnTo}
                 state={{ returnTo: location.state?.returnTo }}
@@ -530,6 +543,13 @@ export default function ResultadosCampanhaFranqueador() {
               >
                 <IconArrowLeft />
                 Voltar para a campanha
+              </Link>
+              <Link
+                to={`/franchisor/exports/new?type=CAMPAIGN_RESULTS&campaign_id=${campaign_id}`}
+                style={styles.btnExport}
+                className="btn-hover"
+              >
+                Exportar
               </Link>
             </div>
           </div>

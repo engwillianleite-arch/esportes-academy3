@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Link, useSearchParams, useNavigate } from 'react-router-dom'
+import { Link, useSearchParams, useNavigate, useParams } from 'react-router-dom'
 import FranchisorLayout from '../../components/FranchisorLayout'
 import {
   getFranchisorMe,
-  getFranchisorSchools,
-  getFranchisorFinanceSummary,
-  getFranchisorFinanceBySchool,
+  getFranchisorSchoolById,
+  getFranchisorFinanceSchoolSummary,
   getFranchisorFinanceByBucket,
+  getFranchisorFinanceSchoolByPeriod,
   formatCurrency,
 } from '../../api/franchisorPortal'
 
@@ -16,8 +16,7 @@ const ALLOWED_ROLES = ['FranchisorOwner', 'FranchisorStaff']
 const PERIOD_OPTIONS = [
   { value: 'este_mes', label: 'Este mês' },
   { value: 'ultimos_30', label: 'Últimos 30 dias' },
-  { value: 'ultimos_90', label: 'Últimos 90 dias' },
-  { value: 'personalizado', label: 'Personalizado (de/até)' },
+  { value: 'personalizado', label: 'Personalizado' },
 ]
 
 const STATUS_OPTIONS = [
@@ -29,13 +28,11 @@ const STATUS_OPTIONS = [
 
 const BUCKET_OPTIONS = [
   { value: '', label: 'Todos' },
-  { value: '1_7', label: '1–7 dias' },
-  { value: '8_30', label: '8–30 dias' },
-  { value: '31_60', label: '31–60 dias' },
-  { value: '61_plus', label: '61+ dias' },
+  { value: '1_7', label: '1–7' },
+  { value: '8_30', label: '8–30' },
+  { value: '31_60', label: '31–60' },
+  { value: '61_plus', label: '61+' },
 ]
-
-const PAGE_SIZES = [10, 25, 50]
 
 function getPeriodBounds(period, fromStr, toStr) {
   const now = new Date()
@@ -46,18 +43,21 @@ function getPeriodBounds(period, fromStr, toStr) {
   } else if (period === 'ultimos_30') {
     from = new Date(now)
     from.setDate(from.getDate() - 30)
-  } else if (period === 'ultimos_90') {
-    from = new Date(now)
-    from.setDate(from.getDate() - 90)
   } else {
-    from = fromStr ? new Date(fromStr) : new Date(now.getFullYear(), now.getMonth(), 1)
+    from = fromStr ? new Date(fromStr) : new Date(now)
+    from.setDate(from.getDate() - 30)
   }
-  const fromValid = isNaN(from.getTime()) ? new Date(now.getFullYear(), now.getMonth(), 1) : from
+  const fromValid = isNaN(from.getTime()) ? new Date(now) : from
+  if (fromValid > to) fromValid.setTime(to.getTime() - 30 * 24 * 60 * 60 * 1000)
   const toValid = isNaN(to.getTime()) ? now : to
   return {
     from: fromValid.toISOString().slice(0, 10),
     to: toValid.toISOString().slice(0, 10),
   }
+}
+
+function getDefaultPeriod() {
+  return getPeriodBounds('ultimos_30', '', '')
 }
 
 const IconAlert = () => (
@@ -67,15 +67,22 @@ const IconAlert = () => (
     <line x1="12" y1="17" x2="12.01" y2="17" />
   </svg>
 )
-const IconChevronLeft = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
-)
-const IconChevronRight = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+const IconArrowLeft = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M19 12H5M12 19l-7-7 7-7" />
+  </svg>
 )
 
 const styles = {
   header: { marginBottom: GRID * 4 },
+  headerRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: GRID * 2,
+    marginBottom: GRID * 2,
+  },
   title: { margin: 0, fontSize: 28, fontWeight: 700, color: 'var(--grafite-tecnico)', letterSpacing: '-0.02em' },
   subtitle: { margin: `${GRID}px 0 0`, fontSize: 15, color: 'var(--grafite-tecnico)', opacity: 0.85 },
   section: { marginBottom: GRID * 4 },
@@ -92,9 +99,8 @@ const styles = {
     flexWrap: 'wrap',
     alignItems: 'flex-end',
     gap: GRID * 2,
-    marginBottom: GRID * 2,
   },
-  filterGroup: { display: 'flex', flexDirection: 'column', gap: GRID, minWidth: 160 },
+  filterGroup: { display: 'flex', flexDirection: 'column', gap: GRID, minWidth: 140 },
   filterLabel: { fontSize: 13, fontWeight: 500, color: 'var(--grafite-tecnico)', opacity: 0.9 },
   select: {
     padding: `${GRID * 1.5}px ${GRID * 2}px`,
@@ -103,7 +109,7 @@ const styles = {
     fontSize: 14,
     background: 'var(--branco-luz)',
     color: 'var(--grafite-tecnico)',
-    minWidth: 180,
+    minWidth: 160,
   },
   input: {
     padding: `${GRID * 1.5}px ${GRID * 2}px`,
@@ -134,9 +140,37 @@ const styles = {
     borderRadius: 'var(--radius)',
     cursor: 'pointer',
   },
+  btnSecondary: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: GRID,
+    padding: `${GRID * 1.5}px ${GRID * 2}px`,
+    fontSize: 14,
+    fontWeight: 500,
+    color: 'var(--grafite-tecnico)',
+    background: 'var(--branco-luz)',
+    border: '1px solid #E5E5E7',
+    borderRadius: 'var(--radius)',
+    cursor: 'pointer',
+    textDecoration: 'none',
+  },
+  btnPrimary: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: GRID,
+    padding: `${GRID * 1.5}px ${GRID * 2}px`,
+    fontSize: 14,
+    fontWeight: 600,
+    color: '#fff',
+    background: 'var(--azul-arena)',
+    border: 'none',
+    borderRadius: 'var(--radius)',
+    cursor: 'pointer',
+    textDecoration: 'none',
+  },
   kpiGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
     gap: GRID * 3,
     marginBottom: GRID * 4,
   },
@@ -176,47 +210,7 @@ const styles = {
     padding: `${GRID * 2}px ${GRID * 3}px`,
     borderBottom: '1px solid #eee',
     color: 'var(--grafite-tecnico)',
-    verticalAlign: 'middle',
   },
-  linkAbrir: { color: 'var(--azul-arena)', fontWeight: 500, textDecoration: 'none' },
-  badge: {
-    display: 'inline-block',
-    padding: `${GRID / 2}px ${GRID * 1.5}px`,
-    borderRadius: 8,
-    fontSize: 12,
-    fontWeight: 600,
-    textTransform: 'capitalize',
-  },
-  statusAtivo: { background: 'rgba(76, 203, 138, 0.2)', color: 'var(--verde-patrocinio)' },
-  statusPendente: { background: 'rgba(44, 110, 242, 0.15)', color: 'var(--azul-arena)' },
-  statusSuspenso: { background: 'rgba(58, 58, 60, 0.12)', color: 'var(--grafite-tecnico)', opacity: 0.9 },
-  actionsCell: { whiteSpace: 'nowrap' },
-  footer: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: GRID * 2,
-    marginTop: GRID * 3,
-    padding: `${GRID * 2} 0`,
-  },
-  paginationInfo: { fontSize: 14, color: 'var(--grafite-tecnico)', opacity: 0.9 },
-  paginationControls: { display: 'flex', alignItems: 'center', gap: GRID },
-  btnPage: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 36,
-    height: 36,
-    padding: `0 ${GRID}`,
-    border: '1px solid #E5E5E7',
-    borderRadius: 8,
-    background: 'var(--branco-luz)',
-    fontSize: 14,
-    color: 'var(--grafite-tecnico)',
-    cursor: 'pointer',
-  },
-  btnPageDisabled: { opacity: 0.5, cursor: 'not-allowed' },
   emptyState: {
     textAlign: 'center',
     padding: GRID * 6,
@@ -257,25 +251,22 @@ const styles = {
     boxShadow: 'var(--shadow)',
   },
   deniedText: { margin: 0, fontSize: 18, fontWeight: 600, color: 'var(--grafite-tecnico)' },
-  bucketTable: { marginTop: GRID * 2, fontSize: 14 },
-}
-
-function StatusBadge({ status }) {
-  const s = (status || '').toLowerCase()
-  const style =
-    s === 'ativo'
-      ? { ...styles.badge, ...styles.statusAtivo }
-      : s === 'pendente'
-        ? { ...styles.badge, ...styles.statusPendente }
-        : { ...styles.badge, ...styles.statusSuspenso }
-  const label = s === 'ativo' ? 'Ativa' : s === 'pendente' ? 'Pendente' : s === 'suspenso' ? 'Suspensa' : status || '—'
-  return <span style={style}>{label}</span>
+  linksSection: {
+    marginTop: GRID * 4,
+    padding: GRID * 3,
+    background: 'var(--branco-luz)',
+    borderRadius: 'var(--radius)',
+    border: '1px solid rgba(0,0,0,0.04)',
+  },
+  linksTitle: { margin: `0 0 ${GRID * 2}px`, fontSize: 14, fontWeight: 600, color: 'var(--grafite-tecnico)' },
+  linkItem: { marginBottom: GRID, fontSize: 14 },
+  link: { color: 'var(--azul-arena)', fontWeight: 500, textDecoration: 'none' },
 }
 
 function SkeletonCards() {
   return (
     <div style={styles.kpiGrid}>
-      {[1, 2, 3, 4].map((i) => (
+      {[1, 2, 3, 4, 5].map((i) => (
         <div key={i} style={styles.kpiCard}>
           <div style={{ ...styles.skeleton, width: '60%', marginBottom: GRID }} />
           <div style={{ ...styles.skeleton, width: '80%', height: 32 }} />
@@ -285,7 +276,7 @@ function SkeletonCards() {
   )
 }
 
-function SkeletonTable({ cols = 8 }) {
+function SkeletonTable({ rows = 4, cols = 3 }) {
   return (
     <div style={styles.tableWrap}>
       <table style={styles.table}>
@@ -297,7 +288,7 @@ function SkeletonTable({ cols = 8 }) {
           </tr>
         </thead>
         <tbody>
-          {[1, 2, 3, 4, 5].map((r) => (
+          {Array.from({ length: rows }).map((_, r) => (
             <tr key={r}>
               {Array.from({ length: cols }).map((_, i) => (
                 <td key={i} style={styles.td}><div style={{ ...styles.skeleton, width: i === 0 ? '80%' : '50%' }} /></td>
@@ -310,46 +301,55 @@ function SkeletonTable({ cols = 8 }) {
   )
 }
 
-export default function FranchisorFinance() {
+export default function FranchisorFinanceSchoolDetail() {
+  const { school_id } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
 
-  const periodParam = searchParams.get('period') || 'este_mes'
   const fromParam = searchParams.get('from') || ''
   const toParam = searchParams.get('to') || ''
-  const schoolIdParam = searchParams.get('school_id') || ''
+  const periodParam = searchParams.get('period') || 'ultimos_30'
   const statusParam = searchParams.get('status') || ''
   const bucketParam = searchParams.get('bucket') || ''
-  const pageParam = Math.max(1, parseInt(searchParams.get('page'), 10) || 1)
-  const pageSizeParam = Math.min(50, Math.max(10, parseInt(searchParams.get('page_size'), 10) || 10))
 
+  const defaultPeriod = useMemo(getDefaultPeriod, [])
   const { from, to } = useMemo(
-    () => getPeriodBounds(periodParam, fromParam, toParam),
-    [periodParam, fromParam, toParam]
+    () => getPeriodBounds(periodParam, fromParam || defaultPeriod.from, toParam || defaultPeriod.to),
+    [periodParam, fromParam, toParam, defaultPeriod.from, defaultPeriod.to]
   )
 
-  const [schools, setSchools] = useState([])
+  // Persistir período na URL: se from/to ausentes, usar default (últimos 30 dias)
+  useEffect(() => {
+    if (!fromParam && !toParam && from && to) {
+      setSearchParams(
+        new URLSearchParams({ period: 'ultimos_30', from, to }),
+        { replace: true }
+      )
+    }
+  }, [fromParam, toParam, from, to, setSearchParams])
+
+  const [school, setSchool] = useState(null)
   const [summary, setSummary] = useState(null)
-  const [bySchool, setBySchool] = useState({ items: [], total: 0, page: 1, page_size: 10 })
   const [byBucket, setByBucket] = useState([])
+  const [byPeriod, setByPeriod] = useState([])
   const [loadingSummary, setLoadingSummary] = useState(true)
-  const [loadingTable, setLoadingTable] = useState(true)
   const [loadingBucket, setLoadingBucket] = useState(false)
+  const [loadingPeriod, setLoadingPeriod] = useState(false)
   const [error, setError] = useState(null)
   const [permissionDenied, setPermissionDenied] = useState(false)
 
   const [period, setPeriod] = useState(periodParam)
   const [fromInput, setFromInput] = useState(fromParam || from)
   const [toInput, setToInput] = useState(toParam || to)
-  const [schoolFilter, setSchoolFilter] = useState(schoolIdParam)
   const [statusFilter, setStatusFilter] = useState(statusParam)
   const [bucketFilter, setBucketFilter] = useState(bucketParam)
 
-  useEffect(() => {
-    setSchoolFilter(schoolIdParam)
-  }, [schoolIdParam])
-
-  const appliedSchoolId = schoolIdParam || null
+  const financeUrl = useMemo(() => {
+    const q = new URLSearchParams()
+    q.set('from', from)
+    q.set('to', to)
+    return `/franchisor/finance?${q.toString()}`
+  }, [from, to])
 
   useEffect(() => {
     let cancelled = false
@@ -368,65 +368,54 @@ export default function FranchisorFinance() {
   }, [permissionDenied, navigate])
 
   useEffect(() => {
-    if (permissionDenied) return
+    if (permissionDenied || !school_id) return
     let cancelled = false
-    getFranchisorSchools()
-      .then((res) => { if (!cancelled) setSchools(res.items || []) })
-      .catch(() => { if (!cancelled) setSchools([]) })
+    getFranchisorSchoolById(school_id)
+      .then((data) => { if (!cancelled) setSchool(data || null) })
+      .catch(() => { if (!cancelled) setSchool(null) })
     return () => { cancelled = true }
-  }, [permissionDenied])
+  }, [school_id, permissionDenied])
 
   useEffect(() => {
-    if (permissionDenied) return
+    if (permissionDenied || !school_id) return
     let cancelled = false
     setError(null)
     setLoadingSummary(true)
-    getFranchisorFinanceSummary({
+    getFranchisorFinanceSchoolSummary(school_id, {
       from,
       to,
-      school_id: appliedSchoolId || undefined,
       status: statusParam || undefined,
       bucket: bucketParam || undefined,
     })
       .then((data) => { if (!cancelled) setSummary(data) })
-      .catch((err) => { if (!cancelled) setError(err?.message || 'Não foi possível carregar o financeiro. Tente novamente.') })
+      .catch((err) => {
+        if (!cancelled) setError(err?.message || 'Não foi possível carregar o financeiro da escola. Tente novamente.')
+      })
       .finally(() => { if (!cancelled) setLoadingSummary(false) })
     return () => { cancelled = true }
-  }, [permissionDenied, from, to, appliedSchoolId, statusParam, bucketParam])
+  }, [permissionDenied, school_id, from, to, statusParam, bucketParam])
 
   useEffect(() => {
-    if (permissionDenied) return
-    let cancelled = false
-    setLoadingTable(true)
-    getFranchisorFinanceBySchool({
-      from,
-      to,
-      status: statusParam || undefined,
-      bucket: bucketParam || undefined,
-      page: pageParam,
-      page_size: pageSizeParam,
-      sort: 'overdue_total_desc',
-    })
-      .then((res) => {
-        if (!cancelled) setBySchool({ items: res.items || [], total: res.total ?? 0, page: res.page ?? 1, page_size: res.page_size ?? 10 })
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err?.message || 'Não foi possível carregar o financeiro. Tente novamente.')
-      })
-      .finally(() => { if (!cancelled) setLoadingTable(false) })
-    return () => { cancelled = true }
-  }, [permissionDenied, from, to, statusParam, bucketParam, pageParam, pageSizeParam])
-
-  useEffect(() => {
-    if (permissionDenied) return
+    if (permissionDenied || !school_id) return
     let cancelled = false
     setLoadingBucket(true)
-    getFranchisorFinanceByBucket({ from, to, school_id: appliedSchoolId || undefined })
+    getFranchisorFinanceByBucket({ from, to, school_id })
       .then((data) => { if (!cancelled) setByBucket(Array.isArray(data) ? data : []) })
       .catch(() => { if (!cancelled) setByBucket([]) })
       .finally(() => { if (!cancelled) setLoadingBucket(false) })
     return () => { cancelled = true }
-  }, [permissionDenied, from, to, appliedSchoolId])
+  }, [permissionDenied, school_id, from, to])
+
+  useEffect(() => {
+    if (permissionDenied || !school_id) return
+    let cancelled = false
+    setLoadingPeriod(true)
+    getFranchisorFinanceSchoolByPeriod(school_id, { from, to, granularity: 'MONTH' })
+      .then((data) => { if (!cancelled) setByPeriod(Array.isArray(data) ? data : []) })
+      .catch(() => { if (!cancelled) setByPeriod([]) })
+      .finally(() => { if (!cancelled) setLoadingPeriod(false) })
+    return () => { cancelled = true }
+  }, [permissionDenied, school_id, from, to])
 
   const applyFilters = () => {
     const next = new URLSearchParams(searchParams)
@@ -435,70 +424,63 @@ export default function FranchisorFinance() {
       next.set('from', fromInput)
       next.set('to', toInput)
     } else {
-      next.delete('from')
-      next.delete('to')
+      next.set('from', from)
+      next.set('to', to)
     }
-    if (schoolFilter) next.set('school_id', schoolFilter)
-    else next.delete('school_id')
     if (statusFilter) next.set('status', statusFilter)
     else next.delete('status')
     if (bucketFilter) next.set('bucket', bucketFilter)
     else next.delete('bucket')
-    next.set('page', '1')
-    next.set('page_size', String(pageSizeParam))
     setSearchParams(next, { replace: true })
   }
 
   const clearFilters = () => {
-    const { from: f, to: t } = getPeriodBounds('este_mes', '', '')
-    setPeriod('este_mes')
+    const { from: f, to: t } = getPeriodBounds('ultimos_30', '', '')
+    setPeriod('ultimos_30')
     setFromInput(f)
     setToInput(t)
-    setSchoolFilter('')
     setStatusFilter('')
     setBucketFilter('')
     setSearchParams(
-      new URLSearchParams({ period: 'este_mes', page: '1', page_size: String(pageSizeParam) }),
+      new URLSearchParams({ period: 'ultimos_30', from: f, to: t }),
       { replace: true }
     )
   }
 
-  const setPage = (p) => {
-    const next = new URLSearchParams(searchParams)
-    next.set('page', String(Math.max(1, p)))
-    setSearchParams(next, { replace: true })
-  }
-
-  const setPageSize = (size) => {
-    const next = new URLSearchParams(searchParams)
-    next.set('page_size', String(size))
-    next.set('page', '1')
-    setSearchParams(next, { replace: true })
-  }
-
-  const reportsUrl = (schoolId) => {
-    const q = new URLSearchParams()
-    q.set('from', from)
-    q.set('to', to)
-    if (schoolId) q.set('school_id', schoolId)
-    return `/franchisor/reports${schoolId ? `/${schoolId}` : ''}?${q.toString()}`
-  }
-
   const breadcrumb = [
-    { label: 'Dashboard', to: '/franchisor/dashboard' },
-    { label: 'Financeiro' },
+    { label: 'Financeiro', to: financeUrl },
+    { label: school?.school_name || school_id || 'Escola' },
   ]
+
+  const hasData = summary && (
+    (summary.received_total != null && summary.received_total !== 0) ||
+    (summary.open_total != null && summary.open_total !== 0) ||
+    (summary.overdue_total != null && summary.overdue_total !== 0)
+  )
 
   if (permissionDenied) return null
 
   return (
     <FranchisorLayout
-      pageTitle="Financeiro consolidado"
+      pageTitle="Financeiro da escola"
       breadcrumb={breadcrumb}
     >
       <div style={styles.header}>
-        <h1 style={styles.title}>Financeiro consolidado</h1>
-        <p style={styles.subtitle}>Mensalidades e inadimplência por escola</p>
+        <div style={styles.headerRow}>
+          <div>
+            <h1 style={styles.title}>Financeiro da escola</h1>
+            <p style={styles.subtitle}>{school?.school_name || school_id} • {from} a {to}</p>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: GRID * 2 }}>
+            <Link to={financeUrl} style={styles.btnSecondary}>
+              <IconArrowLeft />
+              Voltar
+            </Link>
+            <Link to={`/franchisor/schools/${school_id}`} style={styles.btnPrimary}>
+              Abrir escola
+            </Link>
+          </div>
+        </div>
       </div>
 
       {error && (
@@ -514,7 +496,7 @@ export default function FranchisorFinance() {
       )}
 
       {/* Filtros */}
-      <section style={styles.section} aria-label="Filtros">
+      <section style={styles.section} aria-label="Filtros do detalhe">
         <div style={styles.filtersCard}>
           <div style={styles.filtersRow}>
             <div style={styles.filterGroup}>
@@ -555,20 +537,6 @@ export default function FranchisorFinance() {
               </>
             )}
             <div style={styles.filterGroup}>
-              <span style={styles.filterLabel}>Escola</span>
-              <select
-                style={styles.select}
-                value={schoolFilter}
-                onChange={(e) => setSchoolFilter(e.target.value)}
-                aria-label="Escola"
-              >
-                <option value="">Todas</option>
-                {schools.map((s) => (
-                  <option key={s.school_id} value={s.school_id}>{s.school_name}</option>
-                ))}
-              </select>
-            </div>
-            <div style={styles.filterGroup}>
               <span style={styles.filterLabel}>Status</span>
               <select
                 style={styles.select}
@@ -596,10 +564,10 @@ export default function FranchisorFinance() {
             </div>
             <div style={{ ...styles.filterGroup, flexDirection: 'row', alignItems: 'flex-end', gap: GRID }}>
               <button type="button" style={styles.btnApply} onClick={applyFilters}>
-                Aplicar filtros
+                Aplicar
               </button>
               <button type="button" style={styles.btnClear} onClick={clearFilters}>
-                Limpar filtros
+                Limpar
               </button>
             </div>
           </div>
@@ -607,13 +575,17 @@ export default function FranchisorFinance() {
       </section>
 
       {/* KPIs */}
-      <section style={styles.section} aria-label="Indicadores do período">
+      <section style={styles.section} aria-label="Indicadores">
         {loadingSummary ? (
           <SkeletonCards />
+        ) : !hasData && !error ? (
+          <div style={styles.emptyState}>
+            <p style={styles.emptyText}>Nenhum dado financeiro encontrado para este período.</p>
+          </div>
         ) : (
           <div style={styles.kpiGrid}>
             <div style={styles.kpiCard}>
-              <div style={styles.kpiLabel}>Recebido no período</div>
+              <div style={styles.kpiLabel}>Recebido</div>
               <div style={styles.kpiValue}>{summary?.received_total != null ? formatCurrency(summary.received_total) : '—'}</div>
             </div>
             <div style={styles.kpiCard}>
@@ -630,127 +602,28 @@ export default function FranchisorFinance() {
                 {summary?.delinquency_rate != null ? `${Number(summary.delinquency_rate).toFixed(1)}%` : '—'}
               </div>
             </div>
-          </div>
-        )}
-      </section>
-
-      {/* Tabela por escola */}
-      <section style={styles.section} aria-label="Inadimplência por escola">
-        <h2 style={styles.tableSectionTitle}>Inadimplência por escola</h2>
-        {loadingTable ? (
-          <SkeletonTable cols={8} />
-        ) : bySchool.items.length === 0 ? (
-          <div style={styles.emptyState}>
-            <p style={styles.emptyText}>Nenhum dado financeiro encontrado para o período selecionado.</p>
-          </div>
-        ) : (
-          <>
-            <div style={styles.tableWrap}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>Escola</th>
-                    <th style={styles.th}>Status da escola</th>
-                    <th style={styles.th}>Recebido</th>
-                    <th style={styles.th}>Em aberto</th>
-                    <th style={styles.th}>Em atraso</th>
-                    <th style={styles.th}>Inadimplência (%)</th>
-                    <th style={styles.th}>Maior atraso (dias)</th>
-                    <th style={styles.th}>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bySchool.items.map((row) => (
-                    <tr key={row.school_id}>
-                      <td style={styles.td}>{row.school_name}</td>
-                      <td style={styles.td}><StatusBadge status={row.school_status} /></td>
-                      <td style={styles.td}>{row.received_total != null ? formatCurrency(row.received_total) : '—'}</td>
-                      <td style={styles.td}>{row.open_total != null ? formatCurrency(row.open_total) : '—'}</td>
-                      <td style={styles.td}>{row.overdue_total != null ? formatCurrency(row.overdue_total) : '—'}</td>
-                      <td style={styles.td}>{row.delinquency_rate != null ? `${Number(row.delinquency_rate).toFixed(1)}%` : '—'}</td>
-                      <td style={styles.td}>{row.max_overdue_days != null ? row.max_overdue_days : '—'}</td>
-                      <td style={{ ...styles.td, ...styles.actionsCell }}>
-                        <Link
-                          to={`/franchisor/finance/schools/${row.school_id}?from=${from}&to=${to}`}
-                          style={styles.linkAbrir}
-                        >
-                          Ver detalhes
-                        </Link>
-                        {' · '}
-                        <Link to={`/franchisor/schools/${row.school_id}`} style={styles.linkAbrir}>
-                          Abrir escola
-                        </Link>
-                        {' · '}
-                        <Link to={reportsUrl(row.school_id)} style={styles.linkAbrir}>
-                          Ver relatórios
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={styles.kpiCard}>
+              <div style={styles.kpiLabel}>Maior atraso (dias)</div>
+              <div style={styles.kpiValue}>{summary?.max_overdue_days != null ? summary.max_overdue_days : '—'}</div>
             </div>
-            {bySchool.total > pageSizeParam && (
-              <div style={styles.footer}>
-                <span style={styles.paginationInfo}>
-                  {bySchool.items.length} de {bySchool.total} escolas
-                </span>
-                <div style={styles.paginationControls}>
-                  <button
-                    type="button"
-                    style={{ ...styles.btnPage, ...(pageParam <= 1 ? styles.btnPageDisabled : {}) }}
-                    onClick={() => setPage(pageParam - 1)}
-                    disabled={pageParam <= 1}
-                    aria-label="Página anterior"
-                  >
-                    <IconChevronLeft />
-                  </button>
-                  <span style={{ padding: `0 ${GRID}`, fontSize: 14, color: 'var(--grafite-tecnico)' }}>
-                    Página {pageParam}
-                  </span>
-                  <button
-                    type="button"
-                    style={{ ...styles.btnPage, ...(pageParam * pageSizeParam >= bySchool.total ? styles.btnPageDisabled : {}) }}
-                    onClick={() => setPage(pageParam + 1)}
-                    disabled={pageParam * pageSizeParam >= bySchool.total}
-                    aria-label="Próxima página"
-                  >
-                    <IconChevronRight />
-                  </button>
-                  <label style={{ marginLeft: GRID * 2, fontSize: 14, color: 'var(--grafite-tecnico)' }}>
-                    Por página:
-                    <select
-                      style={{ ...styles.select, marginLeft: GRID, padding: `${GRID}px ${GRID * 1.5}px`, minWidth: 70 }}
-                      value={pageSizeParam}
-                      onChange={(e) => setPageSize(Number(e.target.value))}
-                      aria-label="Itens por página"
-                    >
-                      {PAGE_SIZES.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              </div>
-            )}
-          </>
+          </div>
         )}
       </section>
 
-      {/* Distribuição por faixa de atraso (opcional MVP) */}
+      {/* Distribuição por faixa de atraso */}
       {byBucket.length > 0 && (
         <section style={styles.section} aria-label="Distribuição por faixa de atraso">
           <h2 style={styles.tableSectionTitle}>Distribuição por faixa de atraso</h2>
           {loadingBucket ? (
-            <div style={{ ...styles.skeleton, width: '100%', height: 80 }} />
+            <SkeletonTable rows={4} cols={3} />
           ) : (
             <div style={styles.tableWrap}>
               <table style={styles.table}>
                 <thead>
                   <tr>
                     <th style={styles.th}>Faixa</th>
-                    <th style={styles.th}>Valor em atraso</th>
-                    <th style={styles.th}>Quantidade em atraso</th>
+                    <th style={styles.th}>Valor</th>
+                    <th style={styles.th}>Quantidade</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -767,6 +640,53 @@ export default function FranchisorFinance() {
           )}
         </section>
       )}
+
+      {/* Evolução no período (opcional) */}
+      {byPeriod.length > 0 && (
+        <section style={styles.section} aria-label="Evolução no período">
+          <h2 style={styles.tableSectionTitle}>Evolução no período</h2>
+          {loadingPeriod ? (
+            <SkeletonTable rows={3} cols={3} />
+          ) : (
+            <div style={styles.tableWrap}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Período</th>
+                    <th style={styles.th}>Recebido</th>
+                    <th style={styles.th}>Em atraso</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {byPeriod.map((row, i) => (
+                    <tr key={i}>
+                      <td style={styles.td}>{row.period_label}</td>
+                      <td style={styles.td}>{formatCurrency(row.received_total)}</td>
+                      <td style={styles.td}>{formatCurrency(row.overdue_total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Links úteis */}
+      <section style={styles.section} aria-label="Links úteis">
+        <div style={styles.linksSection}>
+          <h2 style={styles.linksTitle}>Links úteis</h2>
+          <div style={styles.linkItem}>
+            <Link to={financeUrl} style={styles.link}>Voltar para Financeiro consolidado</Link>
+          </div>
+          <div style={styles.linkItem}>
+            <Link to={`/franchisor/schools/${school_id}`} style={styles.link}>Abrir detalhe da escola</Link>
+          </div>
+          <div style={styles.linkItem}>
+            <Link to={`/franchisor/reports/${school_id}?from=${from}&to=${to}`} style={styles.link}>Ver relatórios</Link>
+          </div>
+        </div>
+      </section>
     </FranchisorLayout>
   )
 }
