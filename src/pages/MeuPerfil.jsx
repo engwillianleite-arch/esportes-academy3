@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { getMe, patchMe, changePassword } from '../api/me'
+import { Link } from 'react-router-dom'
+import { getMe, patchMe } from '../api/me'
 
 const GRID = 8
 
@@ -210,7 +211,6 @@ export default function MeuPerfil() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [savingPassword, setSavingPassword] = useState(false)
   const [toast, setToast] = useState(null)
   const [toastType, setToastType] = useState('info') // 'success' | 'error' | 'info'
   const [modalDiscard, setModalDiscard] = useState(false)
@@ -219,12 +219,6 @@ export default function MeuPerfil() {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [initialData, setInitialData] = useState({ name: '', phone: '' })
-
-  // Form senha
-  const [currentPassword, setCurrentPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [passwordError, setPasswordError] = useState(null)
 
   const dashboardPath = getDashboardPath(defaultRedirect)
   const hasChanges = profile && (name !== initialData.name || phone !== initialData.phone)
@@ -266,7 +260,6 @@ export default function MeuPerfil() {
   const handleSaveProfile = async () => {
     if (!hasChanges || saving) return
     setSaving(true)
-    setPasswordError(null)
     try {
       await patchMe({ name: name.trim(), phone: phone.trim() || undefined })
       setInitialData({ name: name.trim(), phone: phone.trim() })
@@ -275,36 +268,6 @@ export default function MeuPerfil() {
       showToast(e.message || 'Não foi possível atualizar. Tente novamente.', 'error')
     } finally {
       setSaving(false)
-    }
-  }
-
-  const handleUpdatePassword = async (e) => {
-    e.preventDefault()
-    setPasswordError(null)
-    if ((newPassword || '').trim() !== (confirmPassword || '').trim()) {
-      setPasswordError('A nova senha e a confirmação não coincidem.')
-      return
-    }
-    if (!(currentPassword || '').trim()) {
-      setPasswordError('Informe a senha atual.')
-      return
-    }
-    if (!(newPassword || '').trim()) {
-      setPasswordError('Informe a nova senha.')
-      return
-    }
-    setSavingPassword(true)
-    try {
-      await changePassword(currentPassword.trim(), newPassword.trim())
-      setCurrentPassword('')
-      setNewPassword('')
-      setConfirmPassword('')
-      showToast('Senha atualizada com sucesso!', 'success')
-    } catch (e) {
-      showToast(e.message || 'Não foi possível atualizar a senha. Verifique os campos.', 'error')
-      setPasswordError(e.message || 'Não foi possível atualizar a senha. Verifique os campos.')
-    } finally {
-      setSavingPassword(false)
     }
   }
 
@@ -401,53 +364,37 @@ export default function MeuPerfil() {
         {/* Seção B — Segurança */}
         <section style={styles.section} aria-labelledby="sec-senha-titulo">
           <h2 id="sec-senha-titulo" style={styles.sectionTitle}>Alterar senha</h2>
-          <form onSubmit={handleUpdatePassword} noValidate>
-            {passwordError && (
-              <p style={{ ...styles.errorField, marginBottom: GRID * 2 }} role="alert">
-                {passwordError}
-              </p>
-            )}
-            <div style={styles.field}>
-              <label htmlFor="me-current-password" style={styles.label}>Senha atual</label>
-              <input
-                id="me-current-password"
-                type="password"
-                value={currentPassword}
-                onChange={(e) => { setCurrentPassword(e.target.value); setPasswordError(null) }}
-                style={styles.input}
-                autoComplete="current-password"
-              />
-            </div>
-            <div style={styles.field}>
-              <label htmlFor="me-new-password" style={styles.label}>Nova senha</label>
-              <input
-                id="me-new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => { setNewPassword(e.target.value); setPasswordError(null) }}
-                style={styles.input}
-                autoComplete="new-password"
-              />
-            </div>
-            <div style={styles.field}>
-              <label htmlFor="me-confirm-password" style={styles.label}>Confirmar nova senha</label>
-              <input
-                id="me-confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(null) }}
-                style={styles.input}
-                autoComplete="new-password"
-              />
-            </div>
-            <button
-              type="submit"
-              style={{ ...styles.btnPrimary, ...(savingPassword ? styles.btnDisabled : {}) }}
-              disabled={savingPassword}
-            >
-              {savingPassword ? 'Atualizando…' : 'Atualizar senha'}
-            </button>
-          </form>
+          <p style={styles.hint}>Para alterar sua senha, use a tela dedicada com validação de senha atual.</p>
+          <Link
+            to="/me/change-password"
+            style={{ ...styles.btnSecondary, display: 'inline-flex', marginTop: GRID * 2 }}
+          >
+            Alterar senha
+          </Link>
+        </section>
+
+        {/* Seção — Minhas ações (auditoria pessoal) */}
+        <section style={styles.section} aria-labelledby="sec-audit-titulo">
+          <h2 id="sec-audit-titulo" style={styles.sectionTitle}>Minhas ações</h2>
+          <p style={styles.hint}>Histórico das suas atividades na plataforma (cadastros, pagamentos, presença, etc.).</p>
+          <Link
+            to="/me/audit"
+            style={{ ...styles.btnSecondary, display: 'inline-flex', marginTop: GRID * 2 }}
+          >
+            Ver minhas ações
+          </Link>
+        </section>
+
+        {/* Seção — Ajuda */}
+        <section style={styles.section} aria-labelledby="sec-ajuda-titulo">
+          <h2 id="sec-ajuda-titulo" style={styles.sectionTitle}>Ajuda</h2>
+          <p style={styles.hint}>Perguntas frequentes e orientações de uso do sistema.</p>
+          <Link
+            to="/help"
+            style={{ ...styles.btnSecondary, display: 'inline-flex', marginTop: GRID * 2 }}
+          >
+            Central de Ajuda
+          </Link>
         </section>
 
         {/* Seção C — Meus acessos */}

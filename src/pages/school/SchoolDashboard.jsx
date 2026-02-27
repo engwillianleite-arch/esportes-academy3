@@ -413,6 +413,10 @@ export default function SchoolDashboard() {
                 Comunicados / Mural
                 <IconArrowRight />
               </Link>
+              <Link to="/school/settings" style={styles.atalhoLink} className="btn-hover">
+                Dados da escola
+                <IconArrowRight />
+              </Link>
             </div>
           </section>
 

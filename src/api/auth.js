@@ -140,3 +140,27 @@ export async function selectAccess(payload) {
   }
   return { redirect_to }
 }
+
+/**
+ * Solicita recuperação de senha (link/código por e-mail).
+ * POST /auth/forgot-password
+ * Backend retorna sempre 200/202 com mensagem genérica (não revela se e-mail existe).
+ * Rate limit e token com expiração são responsabilidade do backend.
+ * @param {string} email
+ * @returns {Promise<{ message?: string }>}
+ */
+export async function forgotPassword(email) {
+  const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: (email || '').trim().toLowerCase() }),
+    credentials: 'include',
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível enviar a solicitação. Tente novamente.')
+    err.code = data.code || 'UNKNOWN'
+    throw err
+  }
+  return data
+}

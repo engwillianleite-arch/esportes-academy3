@@ -62,6 +62,11 @@ import CriarEditarUsuarioFranqueador from './pages/franchisor/CriarEditarUsuario
 import PermissoesFranqueador from './pages/franchisor/PermissoesFranqueador'
 import FranchisorSettingsProfile from './pages/franchisor/FranchisorSettingsProfile'
 import MeuPerfil from './pages/MeuPerfil'
+import MeAudit from './pages/MeAudit'
+import ChangePassword from './pages/ChangePassword'
+import Notifications from './pages/Notifications'
+import Help from './pages/Help'
+import HelpArticle from './pages/HelpArticle'
 import SchoolDashboard from './pages/school/SchoolDashboard'
 import SchoolStudents from './pages/school/SchoolStudents'
 import SchoolStudentDetail from './pages/school/SchoolStudentDetail'
@@ -98,6 +103,9 @@ import SchoolAnnouncementHistory from './pages/school/SchoolAnnouncementHistory'
 import SchoolReports from './pages/school/SchoolReports'
 import SchoolReportDetail from './pages/school/SchoolReportDetail'
 import SchoolReportExports from './pages/school/SchoolReportExports'
+import SchoolSettings from './pages/school/SchoolSettings'
+import SchoolSettingsUsers from './pages/school/SchoolSettingsUsers'
+import SchoolSettingsPreferences from './pages/school/SchoolSettingsPreferences'
 
 export default function App() {
   return (
@@ -148,6 +156,9 @@ export default function App() {
         <Route path="/school/announcements/new" element={<SchoolAnnouncementCreate />} />
         <Route path="/school/announcements/:announcementId" element={<SchoolAnnouncementDetail />} />
         <Route path="/school/announcements/:announcementId/history" element={<SchoolAnnouncementHistory />} />
+        <Route path="/school/settings" element={<SchoolSettings />} />
+        <Route path="/school/settings/users" element={<SchoolSettingsUsers />} />
+        <Route path="/school/settings/preferences" element={<SchoolSettingsPreferences />} />
 
         {/* Portal Franqueador */}
       <Route path="/franchisor/dashboard" element={<FranchisorDashboard />} />
@@ -214,8 +225,14 @@ export default function App() {
       <Route path="/admin/escolas/:id/usuarios" element={<UsuariosEscola />} />
       <Route path="/admin/escolas/:id" element={<DetalheEscola />} />
       <Route path="/admin/escolas/:id/status" element={<AlterarStatusEscola />} />
+      <Route path="/forbidden" element={<AcessoNegado />} />
       <Route path="/acesso-negado" element={<AcessoNegado />} />
       <Route path="/me" element={<MeuPerfil />} />
+      <Route path="/me/audit" element={<MeAudit />} />
+      <Route path="/me/notifications" element={<Notifications />} />
+      <Route path="/me/change-password" element={<ChangePassword />} />
+      <Route path="/help" element={<Help />} />
+      <Route path="/help/:articleId" element={<HelpArticle />} />
       <Route path="/perfil" element={<Navigate to="/me" replace />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />

@@ -72,6 +72,381 @@ export async function getSchoolDashboardSummary() {
   return data
 }
 
+// --- Dados da Escola (Configurações) — GET/PUT/PATCH /school/settings ---
+
+const USE_MOCK_SCHOOL_SETTINGS = true // remover quando o backend existir
+
+const MOCK_SCHOOL_SETTINGS = {
+  school_id: MOCK_SUMMARY?.school_id || 'e1',
+  name: MOCK_SUMMARY?.school_name || 'Arena São Paulo',
+  phone: '(11) 3333-4444',
+  email: 'contato@arenasaopaulo.com.br',
+  document: '12.345.678/0001-90',
+  owner_name: 'João Silva',
+  address: {
+    street: 'Rua das Arenas',
+    number: '100',
+    district: 'Centro',
+    city: 'São Paulo',
+    state: 'SP',
+    zip: '01310-100',
+  },
+  status: 'active',
+}
+
+/**
+ * Carrega dados cadastrais da escola (school_id derivado da sessão).
+ * GET /school/settings
+ * Retorno: school_id, name, phone?, email?, document?, owner_name?, address? { street?, number?, district?, city?, state?, zip? }, status?
+ */
+export async function getSchoolSettings() {
+  if (USE_MOCK_SCHOOL_SETTINGS) {
+    await new Promise((r) => setTimeout(r, 500))
+    return { ...MOCK_SCHOOL_SETTINGS, address: MOCK_SCHOOL_SETTINGS.address ? { ...MOCK_SCHOOL_SETTINGS.address } : undefined }
+  }
+  const res = await fetch(`${API_BASE}/school/settings`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível carregar os dados da escola.')
+    err.code = data.code
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+/**
+ * Atualiza dados cadastrais da escola (school_id derivado da sessão).
+ * PUT/PATCH /school/settings — body: campos editáveis (parcial se PATCH).
+ */
+export async function updateSchoolSettings(body) {
+  if (USE_MOCK_SCHOOL_SETTINGS) {
+    await new Promise((r) => setTimeout(r, 600))
+    if (body.name != null) MOCK_SCHOOL_SETTINGS.name = body.name
+    if (body.phone != null) MOCK_SCHOOL_SETTINGS.phone = body.phone
+    if (body.email != null) MOCK_SCHOOL_SETTINGS.email = body.email
+    if (body.document != null) MOCK_SCHOOL_SETTINGS.document = body.document
+    if (body.owner_name != null) MOCK_SCHOOL_SETTINGS.owner_name = body.owner_name
+    if (body.address != null) {
+      MOCK_SCHOOL_SETTINGS.address = { ...MOCK_SCHOOL_SETTINGS.address, ...body.address }
+    }
+    return { ...MOCK_SCHOOL_SETTINGS, address: MOCK_SCHOOL_SETTINGS.address ? { ...MOCK_SCHOOL_SETTINGS.address } : undefined }
+  }
+  const res = await fetch(`${API_BASE}/school/settings`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível salvar os dados. Tente novamente.')
+    err.code = data.code
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+// --- Preferências da escola (parâmetros operacionais) — GET/PATCH /school/settings/preferences ---
+
+const USE_MOCK_PREFERENCES = true // remover quando o backend existir
+
+const MOCK_PREFERENCES = {
+  timezone: 'America/Sao_Paulo',
+  date_format: 'dd/mm/yyyy',
+  week_start: 'monday',
+  allow_team_without_schedule: true,
+  require_training_time: false,
+  default_training_duration_minutes: 60,
+  attendance_default_marking: 'neutral',
+  allow_edit_attendance_after_save: true,
+  attendance_edit_window_days: 7,
+  assessments_require_criteria: true,
+  assessments_default_scale: 'score',
+  allow_edit_assessment_after_save: true,
+  announcements_allow_segmentation: true,
+  announcements_allow_drafts: true,
+}
+
+/**
+ * Carrega preferências operacionais da escola (school_id derivado da sessão).
+ * GET /school/settings/preferences
+ * Retorno: timezone?, week_start?, allow_team_without_schedule, require_training_time, default_training_duration_minutes?,
+ *   attendance_default_marking, allow_edit_attendance_after_save?, attendance_edit_window_days?,
+ *   assessments_require_criteria, assessments_default_scale, allow_edit_assessment_after_save?,
+ *   announcements_allow_segmentation, announcements_allow_drafts
+ */
+export async function getSchoolPreferences() {
+  if (USE_MOCK_PREFERENCES) {
+    await new Promise((r) => setTimeout(r, 500))
+    return { ...MOCK_PREFERENCES }
+  }
+  const res = await fetch(`${API_BASE}/school/settings/preferences`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível carregar as preferências.')
+    err.code = data.code
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+/**
+ * Atualiza preferências operacionais da escola (school_id derivado da sessão).
+ * PUT/PATCH /school/settings/preferences — body: campos do contrato.
+ */
+export async function updateSchoolPreferences(body) {
+  if (USE_MOCK_PREFERENCES) {
+    await new Promise((r) => setTimeout(r, 600))
+    Object.keys(body).forEach((k) => {
+      if (Object.prototype.hasOwnProperty.call(MOCK_PREFERENCES, k)) MOCK_PREFERENCES[k] = body[k]
+    })
+    return { ...MOCK_PREFERENCES }
+  }
+  const res = await fetch(`${API_BASE}/school/settings/preferences`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível salvar as preferências. Tente novamente.')
+    err.code = data.code
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+// --- Usuários e permissões da escola — GET/POST/PATCH/DELETE /school/settings/users ---
+
+const USE_MOCK_SCHOOL_USERS = true // remover quando o backend existir
+
+const ROLES = ['SchoolOwner', 'SchoolStaff', 'Coach', 'Finance']
+
+const MOCK_SCHOOL_USERS = [
+  {
+    membership_id: 'm1',
+    user_id: 'u-owner',
+    name: 'João Silva',
+    email: 'joao@arenasaopaulo.com.br',
+    role: 'SchoolOwner',
+    scope: { type: 'school' },
+    status: 'active',
+  },
+  {
+    membership_id: 'm2',
+    user_id: 'u-staff',
+    name: 'Maria Santos',
+    email: 'maria@arenasaopaulo.com.br',
+    role: 'SchoolStaff',
+    scope: { type: 'school' },
+    status: 'active',
+  },
+  {
+    membership_id: 'm3',
+    user_id: 'u-coach',
+    name: 'Ricardo Oliveira',
+    email: 'ricardo@arenasaopaulo.com.br',
+    role: 'Coach',
+    scope: { type: 'teams', team_ids: ['t1', 't2'] },
+    status: 'active',
+  },
+  {
+    membership_id: 'm4',
+    user_id: 'u-finance',
+    name: 'Ana Costa',
+    email: 'ana@arenasaopaulo.com.br',
+    role: 'Finance',
+    scope: { type: 'school' },
+    status: 'active',
+  },
+  {
+    membership_id: 'm5',
+    user_id: 'u-pending',
+    name: '',
+    email: 'convidado@exemplo.com',
+    role: 'SchoolStaff',
+    scope: { type: 'school' },
+    status: 'pending',
+  },
+]
+
+function mockSchoolUsersList(params) {
+  const q = (params.q || '').toLowerCase().trim()
+  const role = params.role || ''
+  const status = params.status || ''
+  const page = Math.max(1, parseInt(params.page, 10) || 1)
+  const pageSize = Math.min(50, Math.max(10, parseInt(params.page_size, 10) || 25))
+
+  let items = MOCK_SCHOOL_USERS.filter((u) => {
+    if (q) {
+      const search = [u.name, u.email].filter(Boolean).join(' ').toLowerCase()
+      if (!search.includes(q)) return false
+    }
+    if (role && u.role !== role) return false
+    if (status && u.status !== status) return false
+    return true
+  })
+
+  const total = items.length
+  const start = (page - 1) * pageSize
+  items = items.slice(start, start + pageSize)
+  return { items, page, page_size: pageSize, total }
+}
+
+/**
+ * GET /school/settings/users?q=&role=&status=&page=&page_size=
+ * Retorno: { items: [{ membership_id, user_id, name, email, role, scope, status }], page, page_size, total }
+ */
+export async function getSchoolSettingsUsers(params = {}) {
+  if (USE_MOCK_SCHOOL_USERS) {
+    await new Promise((r) => setTimeout(r, 400))
+    return mockSchoolUsersList(params)
+  }
+  const search = new URLSearchParams()
+  if (params.q) search.set('q', params.q)
+  if (params.role) search.set('role', params.role)
+  if (params.status) search.set('status', params.status)
+  if (params.page) search.set('page', String(params.page))
+  if (params.page_size) search.set('page_size', String(params.page_size))
+  const res = await fetch(`${API_BASE}/school/settings/users?${search}`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível carregar os usuários.')
+    err.code = data.code
+    err.status = res.status
+    throw err
+  }
+  return { items: data.items || [], page: data.page || 1, page_size: data.page_size || 25, total: data.total || 0 }
+}
+
+/**
+ * POST /school/settings/users — body: { email, name?, role, scope: { type: 'school' } | { type: 'teams', team_ids: [] } }
+ * Retorno: { membership_id, status }
+ */
+export async function addSchoolSettingsUser(body) {
+  if (USE_MOCK_SCHOOL_USERS) {
+    await new Promise((r) => setTimeout(r, 500))
+    const exists = MOCK_SCHOOL_USERS.some((u) => u.email.toLowerCase() === (body.email || '').toLowerCase())
+    if (exists) {
+      const err = new Error('Este usuário já tem acesso a esta escola.')
+      err.code = 'ALREADY_EXISTS'
+      err.status = 409
+      throw err
+    }
+    const membership_id = 'm-' + Date.now()
+    const status = body.email ? 'active' : 'pending'
+    MOCK_SCHOOL_USERS.push({
+      membership_id,
+      user_id: 'u-new',
+      name: body.name || body.email?.split('@')[0] || '',
+      email: body.email || '',
+      role: body.role || 'SchoolStaff',
+      scope: body.scope && body.scope.type === 'teams' ? { type: 'teams', team_ids: body.scope.team_ids || [] } : { type: 'school' },
+      status,
+    })
+    return { membership_id, status }
+  }
+  const res = await fetch(`${API_BASE}/school/settings/users`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível adicionar o usuário.')
+    err.code = data.code
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+/**
+ * PATCH /school/settings/users/:membershipId — body: { role?, scope?, status? }
+ */
+export async function updateSchoolSettingsUser(membershipId, body) {
+  if (USE_MOCK_SCHOOL_USERS) {
+    await new Promise((r) => setTimeout(r, 400))
+    const u = MOCK_SCHOOL_USERS.find((m) => m.membership_id === membershipId)
+    if (!u) {
+      const err = new Error('Usuário não encontrado.')
+      err.status = 404
+      throw err
+    }
+    if (body.role != null) u.role = body.role
+    if (body.scope != null) u.scope = body.scope.type === 'teams' ? { type: 'teams', team_ids: body.scope.team_ids || [] } : { type: 'school' }
+    if (body.status != null) u.status = body.status
+    return { membership_id: u.membership_id, role: u.role, scope: u.scope, status: u.status }
+  }
+  const res = await fetch(`${API_BASE}/school/settings/users/${encodeURIComponent(membershipId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.message || 'Não foi possível atualizar as permissões.')
+    err.code = data.code
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+/**
+ * DELETE /school/settings/users/:membershipId — retorno 204
+ */
+export async function removeSchoolSettingsUser(membershipId) {
+  if (USE_MOCK_SCHOOL_USERS) {
+    await new Promise((r) => setTimeout(r, 300))
+    const owners = MOCK_SCHOOL_USERS.filter((m) => m.role === 'SchoolOwner')
+    const target = MOCK_SCHOOL_USERS.find((m) => m.membership_id === membershipId)
+    if (target && target.role === 'SchoolOwner' && owners.length <= 1) {
+      const err = new Error('A escola deve ter ao menos um administrador.')
+      err.code = 'LAST_OWNER'
+      err.status = 400
+      throw err
+    }
+    const idx = MOCK_SCHOOL_USERS.findIndex((m) => m.membership_id === membershipId)
+    if (idx !== -1) MOCK_SCHOOL_USERS.splice(idx, 1)
+    return
+  }
+  const res = await fetch(`${API_BASE}/school/settings/users/${encodeURIComponent(membershipId)}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (res.status === 204) return
+  const data = await res.json().catch(() => ({}))
+  const err = new Error(data.message || 'Não foi possível remover o acesso.')
+  err.code = data.code
+  err.status = res.status
+  throw err
+}
+
+/**
+ * Lista turmas para seletor de escopo (id, name). GET /school/teams já coberto por getSchoolTeamsList.
+ */
+export async function getSchoolTeamsForScope() {
+  const r = await getSchoolTeamsList({ page: 1, page_size: 200, status: 'active' })
+  return (r.items || []).map((t) => ({ id: t.id, name: t.name }))
+}
+
 // --- Relatórios operacionais — contrato GET /school/reports/:reportKey ---
 
 const USE_MOCK_REPORTS = true // remover quando o backend existir

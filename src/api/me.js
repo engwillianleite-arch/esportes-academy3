@@ -56,10 +56,13 @@ export async function patchMe(payload) {
 
 /**
  * Altera a senha do usuário (exige senha atual).
+ * Contrato backend: POST /auth/change-password ou /me/change-password
+ * Body: current_password, new_password, logout_other_sessions? (boolean)
  * @param {string} currentPassword
  * @param {string} newPassword
+ * @param {boolean} [logoutOtherSessions=false] — invalida outras sessões quando o backend suportar
  */
-export async function changePassword(currentPassword, newPassword) {
+export async function changePassword(currentPassword, newPassword, logoutOtherSessions = false) {
   const res = await fetch(`${API_BASE}/me/change-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -67,12 +70,20 @@ export async function changePassword(currentPassword, newPassword) {
     body: JSON.stringify({
       current_password: currentPassword,
       new_password: newPassword,
+      ...(typeof logoutOtherSessions === 'boolean' && logoutOtherSessions ? { logout_other_sessions: true } : {}),
     }),
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
-    const err = new Error(data.message || 'Não foi possível atualizar a senha. Verifique os campos.')
-    err.code = data.code
+    const code = data.code || (res.status === 401 ? 'INVALID_CURRENT_PASSWORD' : 'UNKNOWN')
+    const message =
+      code === 'INVALID_CURRENT_PASSWORD' || code === 'INVALID_CURRENT'
+        ? 'Senha atual inválida.'
+        : code === 'PASSWORD_POLICY' || code === 'WEAK_PASSWORD'
+          ? 'A nova senha não atende aos requisitos.'
+          : data.message || 'Não foi possível alterar a senha. Tente novamente.'
+    const err = new Error(message)
+    err.code = code
     throw err
   }
   return data
