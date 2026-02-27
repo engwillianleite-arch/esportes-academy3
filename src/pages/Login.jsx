@@ -138,6 +138,40 @@ const styles = {
     fontSize: 13,
     color: '#b02a37',
   },
+  demoBox: {
+    marginTop: GRID * 4,
+    padding: GRID * 2,
+    background: 'rgba(0,0,0,0.03)',
+    border: '1px solid rgba(0,0,0,0.06)',
+    borderRadius: 'var(--radius)',
+    fontSize: 12,
+    color: 'var(--grafite-tecnico)',
+    opacity: 0.9,
+  },
+  demoTitle: {
+    fontWeight: 600,
+    marginBottom: GRID,
+    fontSize: 12,
+  },
+  demoRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: GRID,
+    padding: `${GRID}px 0`,
+    borderBottom: '1px solid rgba(0,0,0,0.05)',
+  },
+  demoRowLast: {
+    borderBottom: 'none',
+  },
+  demoRole: {
+    fontWeight: 500,
+    color: 'var(--azul-arena)',
+  },
+  demoCreds: {
+    fontFamily: 'monospace',
+    fontSize: 11,
+  },
 }
 
 export default function Login() {
@@ -239,6 +273,21 @@ export default function Login() {
             </Link>
           </div>
           {error && <div style={styles.errorBox} role="alert">{error}</div>}
+          <div style={styles.demoBox}>
+            <div style={styles.demoTitle}>Acesso temporário (demo)</div>
+            <div style={styles.demoRow}>
+              <span style={styles.demoRole}>Admin</span>
+              <span style={styles.demoCreds}>admin@demo.com / demo123</span>
+            </div>
+            <div style={styles.demoRow}>
+              <span style={styles.demoRole}>Franqueador</span>
+              <span style={styles.demoCreds}>franqueador@demo.com / demo123</span>
+            </div>
+            <div style={{ ...styles.demoRow, ...styles.demoRowLast }}>
+              <span style={styles.demoRole}>Franqueado</span>
+              <span style={styles.demoCreds}>franqueado@demo.com / demo123</span>
+            </div>
+          </div>
           <button
             type="submit"
             style={{ ...styles.btn, ...(loading ? styles.btnDisabled : {}) }}

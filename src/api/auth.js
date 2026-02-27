@@ -24,6 +24,34 @@ const GRID = 8
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 
 /**
+ * Contas mocadas para acesso temporário/demo (apenas frontend).
+ * Remover ou desativar em produção.
+ */
+const MOCK_ACCOUNTS = [
+  {
+    email: 'admin@demo.com',
+    password: 'demo123',
+    user: { id: 'mock-admin-1', name: 'Admin Demo', email: 'admin@demo.com' },
+    memberships: [{ portal: 'ADMIN', role: 'Admin', scope: { all: true } }],
+    default_redirect: { portal: 'ADMIN', path: '/admin/dashboard' },
+  },
+  {
+    email: 'franqueador@demo.com',
+    password: 'demo123',
+    user: { id: 'mock-franchisor-1', name: 'Franqueador Demo', email: 'franqueador@demo.com' },
+    memberships: [{ portal: 'FRANCHISOR', role: 'FranchisorOwner', franchisor_id: 'demo-franqueador-1' }],
+    default_redirect: { portal: 'FRANCHISOR', path: '/franchisor/dashboard' },
+  },
+  {
+    email: 'franqueado@demo.com',
+    password: 'demo123',
+    user: { id: 'mock-school-1', name: 'Franqueado Demo', email: 'franqueado@demo.com' },
+    memberships: [{ portal: 'SCHOOL', role: 'SchoolStaff', school_id: 'demo-school-1' }],
+    default_redirect: { portal: 'SCHOOL', path: '/school/dashboard', context: { school_id: 'demo-school-1' } },
+  },
+]
+
+/**
  * Faz login e retorna user, memberships e default_redirect.
  * Em produção o token vem em cookie httpOnly; o front não armazena segredos.
  * @param {string} email
@@ -32,6 +60,16 @@ const API_BASE = import.meta.env.VITE_API_BASE || '/api'
  * @throws {Error} com propriedade .code (INVALID_CREDENTIALS | ACCOUNT_DISABLED | NO_PORTAL_ACCESS) e .message
  */
 export async function login(email, password) {
+  const trimmed = email.trim().toLowerCase()
+  const mock = MOCK_ACCOUNTS.find((m) => m.email === trimmed && m.password === password)
+  if (mock) {
+    return {
+      user: mock.user,
+      memberships: mock.memberships,
+      default_redirect: mock.default_redirect,
+    }
+  }
+
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
