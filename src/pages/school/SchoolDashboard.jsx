@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import SchoolLayout from '../../components/SchoolLayout'
+import { useAuth } from '../../contexts/AuthContext'
 import { getSchoolDashboardSummary, formatCurrency } from '../../api/schoolPortal'
+import {
+  getMockSession,
+  getMockCounts,
+  getMockRecentActivity,
+} from '../../data/mockSchoolSession'
 
 const GRID = 8
 
@@ -23,8 +29,11 @@ const IconArrowRight = () => (
 const IconAlert = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
 )
-const IconCalendar = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+const IconCheck = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
+)
+const IconCircle = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg>
 )
 
 const styles = {
@@ -53,17 +62,63 @@ const styles = {
     fontWeight: 600,
     color: 'var(--grafite-tecnico)',
   },
-  kpiGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-    gap: GRID * 3,
-  },
   card: {
     background: 'var(--branco-luz)',
     borderRadius: 'var(--radius)',
     padding: GRID * 3,
     boxShadow: 'var(--shadow)',
     border: '1px solid rgba(0,0,0,0.04)',
+  },
+  planCard: {
+    background: 'var(--branco-luz)',
+    borderRadius: 'var(--radius)',
+    padding: GRID * 3,
+    boxShadow: 'var(--shadow)',
+    border: '1px solid rgba(0,0,0,0.04)',
+    marginBottom: GRID * 4,
+  },
+  planRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: GRID * 2,
+    alignItems: 'baseline',
+    marginBottom: GRID,
+  },
+  planLabel: { fontSize: 13, color: 'var(--grafite-tecnico)', opacity: 0.8 },
+  planValue: { fontSize: 18, fontWeight: 700, color: 'var(--grafite-tecnico)' },
+  planStatus: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: `${GRID / 2}px ${GRID}px`,
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: 600,
+    background: 'var(--azul-arena)',
+    color: '#fff',
+  },
+  planHint: { margin: 0, marginTop: GRID, fontSize: 13, color: 'var(--grafite-tecnico)', opacity: 0.75 },
+  checklistList: {
+    listStyle: 'none',
+    margin: 0,
+    padding: 0,
+  },
+  checklistItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: GRID * 2,
+    padding: `${GRID * 1.5}px 0`,
+    borderBottom: '1px solid #eee',
+    fontSize: 14,
+    color: 'var(--grafite-tecnico)',
+  },
+  checklistItemLast: { borderBottom: 'none' },
+  checklistLink: { color: 'var(--azul-arena)', fontWeight: 500, textDecoration: 'none' },
+  checklistIconDone: { color: 'var(--azul-arena)', flexShrink: 0 },
+  checklistIconPending: { color: 'var(--cinza-arquibancada)', opacity: 0.6, flexShrink: 0 },
+  kpiGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+    gap: GRID * 3,
   },
   cardLink: {
     display: 'block',
@@ -105,34 +160,18 @@ const styles = {
     color: 'var(--grafite-tecnico)',
     textDecoration: 'none',
   },
-  listCard: {
-    background: 'var(--branco-luz)',
-    borderRadius: 'var(--radius)',
-    padding: GRID * 3,
-    boxShadow: 'var(--shadow)',
-    border: '1px solid rgba(0,0,0,0.04)',
+  activityList: {
+    listStyle: 'none',
+    margin: 0,
+    padding: 0,
   },
-  listItem: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  activityItem: {
     padding: `${GRID}px 0`,
     borderBottom: '1px solid #eee',
     fontSize: 14,
     color: 'var(--grafite-tecnico)',
   },
-  listItemLast: { borderBottom: 'none' },
-  linkModule: { color: 'var(--azul-arena)', fontWeight: 500, textDecoration: 'none' },
-  eventRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: GRID,
-    padding: `${GRID}px 0`,
-    borderBottom: '1px solid #eee',
-    fontSize: 14,
-  },
-  eventRowLast: { borderBottom: 'none' },
-  eventDate: { fontSize: 13, color: 'var(--grafite-tecnico)', opacity: 0.8 },
+  activityItemLast: { borderBottom: 'none' },
   emptyState: {
     textAlign: 'center',
     padding: GRID * 6,
@@ -165,16 +204,6 @@ const styles = {
     fontWeight: 500,
     cursor: 'pointer',
   },
-  deniedBox: {
-    textAlign: 'center',
-    padding: GRID * 6,
-    background: 'var(--branco-luz)',
-    borderRadius: 'var(--radius)',
-    boxShadow: 'var(--shadow)',
-  },
-  deniedTitle: { margin: '0 0 ' + GRID + 'px', fontSize: 18, fontWeight: 600, color: 'var(--grafite-tecnico)' },
-  verTodas: { marginTop: GRID * 2, fontSize: 14 },
-  verTodasLink: { color: 'var(--azul-arena)', fontWeight: 500, textDecoration: 'none' },
 }
 
 function KpiCard({ title, value, icon: Icon, href, loading }) {
@@ -208,15 +237,21 @@ function SkeletonCard() {
   )
 }
 
-function formatEventDate(dateStr) {
-  if (!dateStr) return '—'
-  try {
-    const d = new Date(dateStr + 'T12:00:00')
-    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-  } catch {
-    return dateStr
-  }
-}
+const CHECKLIST_ITEMS = [
+  { label: 'Preencher dados da escola', to: '/school/settings', key: 'school_data' },
+  { label: 'Adicionar usuários da equipe', to: '/school/settings/users', key: 'users' },
+  { label: 'Criar primeira turma', to: '/school/teams/new', key: 'teams' },
+  { label: 'Cadastrar primeiro aluno', to: '/school/students/new', key: 'students' },
+  { label: 'Registrar presença', to: '/school/attendance', key: 'attendance' },
+]
+
+const ATALHOS_MVP = [
+  { label: 'Alunos', to: '/school/students' },
+  { label: 'Turmas', to: '/school/teams' },
+  { label: 'Presença', to: '/school/attendance' },
+  { label: 'Financeiro', to: '/school/finance' },
+  { label: 'Eventos', to: '/school/events' },
+]
 
 export default function SchoolDashboard() {
   const navigate = useNavigate()
@@ -225,7 +260,21 @@ export default function SchoolDashboard() {
   const [error, setError] = useState(null)
   const [permissionDenied, setPermissionDenied] = useState(false)
 
+  const { user } = useAuth()
+  const mockSession = getMockSession()
+  const mockCounts = getMockCounts()
+  const recentActivity = getMockRecentActivity(3)
+
+  const hasAccess = mockSession != null || user != null
+
+  // Segurança: school_id só da sessão (mock) ou do contexto autenticado, nunca da query/URL. Sem sessão -> redirect.
   useEffect(() => {
+    if (hasAccess) return
+    navigate('/login', { replace: true })
+  }, [hasAccess, navigate])
+
+  useEffect(() => {
+    if (!hasAccess) return
     let cancelled = false
     setError(null)
     setPermissionDenied(false)
@@ -249,7 +298,7 @@ export default function SchoolDashboard() {
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [])
+  }, [hasAccess])
 
   useEffect(() => {
     if (permissionDenied) {
@@ -266,25 +315,34 @@ export default function SchoolDashboard() {
       .finally(() => setLoading(false))
   }
 
-  const schoolName = summary?.school_name ?? ''
-  const hasAnyKpi =
-    summary?.students_active_count != null ||
-    summary?.teams_active_count != null ||
-    summary?.attendances_today_count != null ||
-    summary?.overdue_payments_count != null ||
-    summary?.overdue_total != null
-  const pending = summary?.pending_today
-  const hasPending = pending && (pending.presenças_nao_registradas > 0 || pending.mensalidades_vencem_semana > 0)
-  const upcomingEvents = summary?.upcoming_events || []
-  const showEvents = upcomingEvents.length > 0
+  // Nome da escola: somente do estado da sessão (mock), não da URL.
+  const schoolName = mockSession?.school_name ?? summary?.school_name ?? ''
 
+  const studentsCount = summary?.students_active_count ?? mockCounts.students_count ?? 0
+  const teamsCount = summary?.teams_active_count ?? mockCounts.teams_count ?? 0
+  const attendancesToday = summary?.attendances_today_count ?? mockCounts.attendances_today_count ?? 0
+  const overdueCount = summary?.overdue_payments_count ?? mockCounts.overdue_invoices_count ?? 0
+  const overdueTotal = summary?.overdue_total
+  const usersCount = mockCounts.users_count ?? 0
+
+  const checklistDone = {
+    school_data: !!(mockSession?.school_name?.trim?.() ?? summary?.school_name?.trim?.()),
+    users: usersCount > 1,
+    teams: teamsCount > 0,
+    students: studentsCount > 0,
+    attendance: attendancesToday > 0,
+  }
+
+  const hasAnyKpi = studentsCount > 0 || teamsCount > 0 || attendancesToday > 0 || overdueCount > 0 || (overdueTotal != null && Number(overdueTotal) > 0)
+
+  if (!hasAccess) return null
   if (permissionDenied) return null
 
   return (
     <SchoolLayout schoolName={schoolName}>
       <header style={styles.header}>
         <h1 style={styles.title}>Dashboard</h1>
-        <p style={styles.subtitle}>Visão geral da escola</p>
+        <p style={styles.subtitle}>Bem-vindo(a)! Vamos configurar sua escola.</p>
       </header>
 
       {error && (
@@ -302,9 +360,77 @@ export default function SchoolDashboard() {
 
       {!error && (
         <>
-          {/* KPIs */}
+          {/* Card Plano ativo (mock) */}
+          <section style={styles.section} aria-label="Plano ativo">
+            <div style={styles.planCard}>
+              <div style={styles.planRow}>
+                <span style={styles.planLabel}>Plano</span>
+                <span style={styles.planValue}>Plano Escola</span>
+              </div>
+              <div style={styles.planRow}>
+                <span style={styles.planLabel}>Valor</span>
+                <span style={styles.planValue}>R$ 147,00 / mês</span>
+              </div>
+              <div style={styles.planRow}>
+                <span style={styles.planLabel}>Status</span>
+                <span style={styles.planStatus}>Ativo</span>
+              </div>
+              <p style={styles.planHint}>Pagamento confirmado. Acesso liberado.</p>
+            </div>
+          </section>
+
+          {/* Checklist "Comece por aqui" */}
+          <section style={styles.section} aria-label="Comece por aqui">
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: GRID * 2, marginBottom: GRID * 2 }}>
+              <h2 style={{ ...styles.sectionTitle, margin: 0 }}>Comece por aqui</h2>
+              <Link
+                to="/school/setup"
+                style={{
+                  padding: `${GRID}px ${GRID * 2}px`,
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: 'var(--azul-arena)',
+                  background: 'rgba(0,180,120,0.1)',
+                  border: '1px solid rgba(0,180,120,0.3)',
+                  borderRadius: 'var(--radius)',
+                  textDecoration: 'none',
+                }}
+                className="btn-hover"
+              >
+                Começar configurações
+              </Link>
+            </div>
+            <div style={styles.card}>
+              <ul style={styles.checklistList}>
+                {CHECKLIST_ITEMS.map((item, i) => {
+                  const done = checklistDone[item.key]
+                  return (
+                    <li
+                      key={item.key}
+                      style={{
+                        ...styles.checklistItem,
+                        ...(i === CHECKLIST_ITEMS.length - 1 ? styles.checklistItemLast : {}),
+                      }}
+                    >
+                      {done ? (
+                        <span style={styles.checklistIconDone} aria-hidden><IconCheck /></span>
+                      ) : (
+                        <span style={styles.checklistIconPending} aria-hidden><IconCircle /></span>
+                      )}
+                      <Link to={item.to} style={styles.checklistLink} className="btn-hover">
+                        {item.label}
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          </section>
+
+          {/* KPIs (mockados) */}
           <section style={styles.section} aria-label="Indicadores">
-            <div style={styles.kpiGrid} className="admin-kpi-grid">
+            <h2 style={styles.sectionTitle}>Indicadores</h2>
+            <div style={styles.kpiGrid}>
               {loading ? (
                 <>
                   <SkeletonCard />
@@ -318,151 +444,74 @@ export default function SchoolDashboard() {
                 </div>
               ) : (
                 <>
-                  {summary?.students_active_count != null && (
-                    <KpiCard
-                      title="Alunos ativos"
-                      value={summary.students_active_count.toLocaleString('pt-BR')}
-                      icon={IconStudents}
-                      href="/school/students"
-                      loading={false}
-                    />
-                  )}
-                  {summary?.teams_active_count != null && (
-                    <KpiCard
-                      title="Turmas ativas"
-                      value={summary.teams_active_count.toLocaleString('pt-BR')}
-                      icon={IconTeams}
-                      href="/school/teams"
-                      loading={false}
-                    />
-                  )}
-                  {summary?.attendances_today_count != null && (
-                    <KpiCard
-                      title="Presenças hoje"
-                      value={summary.attendances_today_count.toLocaleString('pt-BR')}
-                      icon={IconAttendance}
-                      href="/school/attendance"
-                      loading={false}
-                    />
-                  )}
-                  {(summary?.overdue_payments_count != null || summary?.overdue_total != null) && (
-                    <KpiCard
-                      title="Mensalidades em atraso"
-                      value={
-                        summary.overdue_payments_count != null && summary.overdue_total != null
-                          ? `${summary.overdue_payments_count} (${formatCurrency(summary.overdue_total)})`
-                          : summary.overdue_payments_count != null
-                          ? String(summary.overdue_payments_count)
-                          : formatCurrency(summary.overdue_total)
-                      }
-                      icon={IconOverdue}
-                      href="/school/finance"
-                      loading={false}
-                    />
-                  )}
+                  <KpiCard
+                    title="Alunos"
+                    value={String(studentsCount)}
+                    icon={IconStudents}
+                    href="/school/students"
+                    loading={false}
+                  />
+                  <KpiCard
+                    title="Turmas"
+                    value={String(teamsCount)}
+                    icon={IconTeams}
+                    href="/school/teams"
+                    loading={false}
+                  />
+                  <KpiCard
+                    title="Presenças hoje"
+                    value={String(attendancesToday)}
+                    icon={IconAttendance}
+                    href="/school/attendance"
+                    loading={false}
+                  />
+                  <KpiCard
+                    title="Mensalidades em atraso"
+                    value={
+                      overdueTotal != null
+                        ? `${overdueCount} (${formatCurrency(overdueTotal)})`
+                        : String(overdueCount)
+                    }
+                    icon={IconOverdue}
+                    href="/school/finance"
+                    loading={false}
+                  />
                 </>
               )}
             </div>
           </section>
 
-          {/* Atalhos rápidos — MVP: Alunos, Turmas, Presença, Financeiro, Eventos */}
+          {/* Atalhos rápidos — apenas módulos MVP */}
           <section style={styles.section} aria-label="Atalhos rápidos">
             <h2 style={styles.sectionTitle}>Atalhos rápidos</h2>
             <div style={styles.atalhosGrid}>
-              <Link to="/school/reports" style={styles.atalhoLink} className="btn-hover">
-                Relatórios
-                <IconArrowRight />
-              </Link>
-              <Link to="/school/students" style={styles.atalhoLink} className="btn-hover">
-                Alunos
-                <IconArrowRight />
-              </Link>
-              <Link to="/school/teams" style={styles.atalhoLink} className="btn-hover">
-                Turmas
-                <IconArrowRight />
-              </Link>
-              <Link to="/school/coaches" style={styles.atalhoLink} className="btn-hover">
-                Professores/Treinadores
-                <IconArrowRight />
-              </Link>
-              <Link to="/school/trainings" style={styles.atalhoLink} className="btn-hover">
-                Treinos
-                <IconArrowRight />
-              </Link>
-              <Link to="/school/assessments" style={styles.atalhoLink} className="btn-hover">
-                Avaliações
-                <IconArrowRight />
-              </Link>
-              <Link to="/school/attendance" style={styles.atalhoLink} className="btn-hover">
-                Presença
-                <IconArrowRight />
-              </Link>
-              <Link to="/school/attendance/history" style={styles.atalhoLink} className="btn-hover">
-                Histórico de Presenças
-                <IconArrowRight />
-              </Link>
-              <Link to="/school/finance" style={styles.atalhoLink} className="btn-hover">
-                Financeiro
-                <IconArrowRight />
-              </Link>
-              <Link to="/school/events" style={styles.atalhoLink} className="btn-hover">
-                Eventos
-                <IconArrowRight />
-              </Link>
-              <Link to="/school/announcements" style={styles.atalhoLink} className="btn-hover">
-                Comunicados / Mural
-                <IconArrowRight />
-              </Link>
-              <Link to="/school/settings" style={styles.atalhoLink} className="btn-hover">
-                Dados da escola
-                <IconArrowRight />
-              </Link>
+              {ATALHOS_MVP.map((a) => (
+                <Link key={a.to} to={a.to} style={styles.atalhoLink} className="btn-hover">
+                  {a.label}
+                  <IconArrowRight />
+                </Link>
+              ))}
             </div>
           </section>
 
-          {/* Pendências do dia (opcional MVP) */}
-          {!loading && hasPending && (
-            <section style={styles.section} aria-label="Pendências do dia">
-              <h2 style={styles.sectionTitle}>Pendências do dia</h2>
-              <div style={styles.listCard}>
-                {pending.presenças_nao_registradas > 0 && (
-                  <div style={styles.listItem}>
-                    <span>{pending.presenças_nao_registradas} presenças não registradas hoje</span>
-                    <Link to="/school/attendance" style={styles.linkModule}>Registrar</Link>
-                  </div>
-                )}
-                {pending.mensalidades_vencem_semana > 0 && (
-                  <div style={{ ...styles.listItem, ...(pending.presenças_nao_registradas <= 0 ? styles.listItemLast : {}) }}>
-                    <span>{pending.mensalidades_vencem_semana} mensalidades vencem esta semana</span>
-                    <Link to="/school/finance" style={styles.linkModule}>Ver financeiro</Link>
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
-
-          {/* Próximos eventos (opcional MVP) */}
-          {!loading && showEvents && (
-            <section style={styles.section} aria-label="Próximos eventos">
-              <h2 style={styles.sectionTitle}>Próximos eventos</h2>
-              <div style={styles.listCard}>
-                {upcomingEvents.slice(0, 3).map((ev, i) => (
-                  <div
-                    key={ev.id}
-                    style={{
-                      ...styles.eventRow,
-                      ...(i === Math.min(2, upcomingEvents.length - 1) ? styles.eventRowLast : {}),
-                    }}
-                  >
-                    <span style={styles.eventDate}><IconCalendar /> {formatEventDate(ev.date)}</span>
-                    <span>{ev.title}</span>
-                  </div>
-                ))}
-                <div style={styles.verTodas}>
-                  <Link to="/school/events" style={styles.verTodasLink}>
-                    Ver eventos
-                  </Link>
-                </div>
+          {/* Atividade recente (opcional — mock) */}
+          {recentActivity.length > 0 && (
+            <section style={styles.section} aria-label="Atividade recente">
+              <h2 style={styles.sectionTitle}>Atividade recente</h2>
+              <div style={styles.card}>
+                <ul style={styles.activityList}>
+                  {recentActivity.map((item, i) => (
+                    <li
+                      key={item.id}
+                      style={{
+                        ...styles.activityItem,
+                        ...(i === recentActivity.length - 1 ? styles.activityItemLast : {}),
+                      }}
+                    >
+                      {item.label}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </section>
           )}

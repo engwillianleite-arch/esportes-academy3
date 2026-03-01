@@ -1,27 +1,27 @@
 /**
  * Contrato mínimo do backend — Autenticação (frontend apenas consome).
+ * Quando VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY estão definidos, usa Supabase Auth + tabelas (profiles, franchisor_members, school_members).
+ * Caso contrário, usa contas demo ou API REST.
  *
- * POST /auth/login
+ * POST /auth/login (quando sem Supabase)
  *   payload: { email, password }
- *   retorno sucesso:
- *     - token/cookie de sessão (httpOnly recomendado)
- *     - user: { id, name, email }
- *     - memberships: [
- *         { portal: 'ADMIN', role: 'Admin', scope: { all: true } },
- *         { portal: 'FRANCHISOR', role: 'FranchisorOwner', franchisor_id, scope_school_ids? },
- *         { portal: 'SCHOOL', role: 'SchoolStaff', school_id }
- *       ]
- *     - default_redirect: { portal, path, context? }  (portal: ADMIN | FRANCHISOR | SCHOOL)
- *   erros (códigos/keys):
- *     - INVALID_CREDENTIALS -> "Email ou senha inválidos."
- *     - ACCOUNT_DISABLED -> "Sua conta está desativada. Contate o suporte."
- *     - NO_PORTAL_ACCESS -> "Você não possui acesso a nenhum portal no momento."
+ *   retorno sucesso: user, memberships, default_redirect
+ *   erros: INVALID_CREDENTIALS | ACCOUNT_DISABLED | NO_PORTAL_ACCESS
  */
 
-const GRID = 8
+import {
+  loginWithSupabase,
+  getPostLoginOptionsFromSupabase,
+  selectAccessFromSupabase,
+  logoutSupabase,
+} from './supabaseAuth'
+import { supabase } from '../lib/supabase'
 
-/** Base URL da API (ajustar em produção) */
+/** Base URL da API (quando não usa Supabase) */
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
+
+/** True quando Supabase está configurado (usa auth + DB direto). */
+const USE_SUPABASE = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY)
 
 /**
  * Contas mocadas para acesso temporário/demo (apenas frontend).
@@ -53,13 +53,18 @@ const MOCK_ACCOUNTS = [
 
 /**
  * Faz login e retorna user, memberships e default_redirect.
- * Em produção o token vem em cookie httpOnly; o front não armazena segredos.
+ * Com Supabase: signInWithPassword + profiles/franchisor_members/school_members.
+ * Sem Supabase: mock demo ou POST /auth/login.
  * @param {string} email
  * @param {string} password
  * @returns {Promise<{ user: object, memberships: array, default_redirect: object }>}
- * @throws {Error} com propriedade .code (INVALID_CREDENTIALS | ACCOUNT_DISABLED | NO_PORTAL_ACCESS) e .message
+ * @throws {Error} com .code (INVALID_CREDENTIALS | ACCOUNT_DISABLED | NO_PORTAL_ACCESS) e .message
  */
 export async function login(email, password) {
+  if (USE_SUPABASE) {
+    return loginWithSupabase(email, password)
+  }
+
   const trimmed = email.trim().toLowerCase()
   const mock = MOCK_ACCOUNTS.find((m) => m.email === trimmed && m.password === password)
   if (mock) {
@@ -130,13 +135,15 @@ export function getRedirectPath(defaultRedirect) {
 
 /**
  * Opções pós-login para tela de seleção de portal/contexto.
- * GET /auth/post-login-options (autenticado por cookie/sessão).
- * @returns {Promise<{
- *   portals: Array<{ portal: string, label?: string, franchisor_id?: string, franchisor_name?: string, role?: string, scope_school_ids?: string[], schools?: Array<{ school_id: string, school_name: string, city?: string, state?: string, status?: string }> }>,
- *   default_redirect?: { portal: string, path?: string, context?: object }
- * }>}
+ * Com Supabase: lê da sessão + profiles/franchisor_members/school_members.
+ * @returns {Promise<{ portals: array, default_redirect?: object }>}
  */
 export async function getPostLoginOptions() {
+  if (USE_SUPABASE) {
+    const data = await getPostLoginOptionsFromSupabase()
+    return data ?? { portals: [], default_redirect: null }
+  }
+
   const res = await fetch(`${API_BASE}/auth/post-login-options`, {
     method: 'GET',
     credentials: 'include',
@@ -155,11 +162,16 @@ export async function getPostLoginOptions() {
 
 /**
  * Confirma acesso e obtém path seguro para redirecionamento.
- * POST /auth/select-access (backend valida portal/contexto do usuário).
+ * Com Supabase: valida client-side e retorna redirect_to.
  * @param {{ portal: string, context?: { school_id?: string, franchisor_id?: string }, returnTo?: string }} payload
  * @returns {Promise<{ redirect_to: string }>}
  */
 export async function selectAccess(payload) {
+  if (USE_SUPABASE) {
+    const data = await selectAccessFromSupabase(payload)
+    if (data?.redirect_to) return data
+  }
+
   const res = await fetch(`${API_BASE}/auth/select-access`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -180,18 +192,35 @@ export async function selectAccess(payload) {
 }
 
 /**
- * Solicita recuperação de senha (link/código por e-mail).
- * POST /auth/forgot-password
- * Backend retorna sempre 200/202 com mensagem genérica (não revela se e-mail existe).
- * Rate limit e token com expiração são responsabilidade do backend.
+ * Solicita recuperação de senha (link por e-mail).
+ * Com Supabase: supabase.auth.resetPasswordForEmail.
  * @param {string} email
  * @returns {Promise<{ message?: string }>}
  */
 export async function forgotPassword(email) {
+  const trimmed = (email || '').trim().toLowerCase()
+  if (!trimmed) {
+    const err = new Error('Informe o e-mail.')
+    err.code = 'UNKNOWN'
+    throw err
+  }
+
+  if (USE_SUPABASE && supabase) {
+    const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+      redirectTo: `${window.location.origin}/login`,
+    })
+    if (error) {
+      const err = new Error(error.message || 'Não foi possível enviar o e-mail. Tente novamente.')
+      err.code = 'UNKNOWN'
+      throw err
+    }
+    return { message: 'Se existir uma conta com esse e-mail, você receberá um link para redefinir a senha.' }
+  }
+
   const res = await fetch(`${API_BASE}/auth/forgot-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: (email || '').trim().toLowerCase() }),
+    body: JSON.stringify({ email: trimmed }),
     credentials: 'include',
   })
   const data = await res.json().catch(() => ({}))

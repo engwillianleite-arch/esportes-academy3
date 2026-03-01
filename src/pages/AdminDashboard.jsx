@@ -117,41 +117,47 @@ export default function AdminDashboard() {
               </div>
             </Link>
 
-            <div style={styles.card}>
-              <div style={styles.cardHeader}>
-                <span style={styles.cardTitulo}>Escolas Ativas</span>
-                <span style={styles.cardIcon}><IconEscola /></span>
+            <Link to="/admin/escolas" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div style={styles.card} className="btn-hover">
+                <div style={styles.cardHeader}>
+                  <span style={styles.cardTitulo}>Escolas Ativas</span>
+                  <span style={styles.cardIcon}><IconEscola /></span>
+                </div>
+                <div style={styles.kpiValor}>87</div>
+                <div style={styles.kpiMeta}>
+                  <span style={styles.badgePendente}>3 Pendentes</span>
+                </div>
+                <div style={styles.tendenciaBar}><span style={{ ...styles.tendenciaFill, width: '85%' }} /></div>
               </div>
-              <div style={styles.kpiValor}>87</div>
-              <div style={styles.kpiMeta}>
-                <span style={styles.badgePendente}>3 Pendentes</span>
-              </div>
-              <div style={styles.tendenciaBar}><span style={{ ...styles.tendenciaFill, width: '85%' }} /></div>
-            </div>
+            </Link>
 
-            <div style={styles.card}>
-              <div style={styles.cardHeader}>
-                <span style={styles.cardTitulo}>Alunos Ativos</span>
-                <span style={styles.cardIcon}><IconAlunos /></span>
+            <Link to="/admin/reports/strategic" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div style={styles.card} className="btn-hover">
+                <div style={styles.cardHeader}>
+                  <span style={styles.cardTitulo}>Alunos Ativos</span>
+                  <span style={styles.cardIcon}><IconAlunos /></span>
+                </div>
+                <div style={styles.kpiValor}>4.326</div>
+                <div style={styles.kpiMeta}>
+                  <span style={styles.kpiPositivo}>+8%</span> este mês
+                </div>
+                <div style={styles.tendenciaBar}><span style={{ ...styles.tendenciaFill, width: '60%' }} /></div>
               </div>
-              <div style={styles.kpiValor}>4.326</div>
-              <div style={styles.kpiMeta}>
-                <span style={styles.kpiPositivo}>+8%</span> este mês
-              </div>
-              <div style={styles.tendenciaBar}><span style={{ ...styles.tendenciaFill, width: '60%' }} /></div>
-            </div>
+            </Link>
 
-            <div style={styles.card}>
-              <div style={styles.cardHeader}>
-                <span style={styles.cardTitulo}>Receita Consolidada</span>
-                <span style={styles.cardIcon}><IconReceita /></span>
+            <Link to="/admin/finance/global" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div style={styles.card} className="btn-hover">
+                <div style={styles.cardHeader}>
+                  <span style={styles.cardTitulo}>Receita Consolidada</span>
+                  <span style={styles.cardIcon}><IconReceita /></span>
+                </div>
+                <div style={styles.kpiValorDestaque}>{formatReceita(MOCK_KPIS.receita.valor)}</div>
+                <div style={styles.kpiMeta}>
+                  <span style={styles.kpiPositivo}>+12%</span> este mês
+                </div>
+                <div style={styles.tendenciaBar}><span style={{ ...styles.tendenciaFill, width: '90%' }} /></div>
               </div>
-              <div style={styles.kpiValorDestaque}>{formatReceita(MOCK_KPIS.receita.valor)}</div>
-              <div style={styles.kpiMeta}>
-                <span style={styles.kpiPositivo}>+12%</span> este mês
-              </div>
-              <div style={styles.tendenciaBar}><span style={{ ...styles.tendenciaFill, width: '90%' }} /></div>
-            </div>
+            </Link>
           </div>
         </section>
 

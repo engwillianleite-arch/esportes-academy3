@@ -7,6 +7,7 @@ import {
   createSchoolStudent,
   updateSchoolStudent,
 } from '../../api/schoolPortal'
+import { getMockCounts, updateMockCounts } from '../../data/mockSchoolSession'
 
 const GRID = 8
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -462,6 +463,9 @@ export default function SchoolStudentCreateEdit() {
     const promise = isEdit ? updateSchoolStudent(studentId, payload) : createSchoolStudent(payload)
     promise
       .then((res) => {
+        if (!isEdit) {
+          updateMockCounts({ students_count: (getMockCounts().students_count ?? 0) + 1 })
+        }
         setSuccessMessage('Aluno salvo com sucesso.')
         const id = res?.id ?? studentId
         setTimeout(() => {

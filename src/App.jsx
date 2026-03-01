@@ -1,5 +1,10 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import LandingPage from './pages/LandingPage'
+import Signup from './pages/Signup'
+import PaymentSuccess from './pages/PaymentSuccess'
+import PaymentCanceled from './pages/PaymentCanceled'
+import PaymentPending from './pages/PaymentPending'
 import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import SelectAccess from './pages/SelectAccess'
@@ -106,17 +111,24 @@ import SchoolReportExports from './pages/school/SchoolReportExports'
 import SchoolSettings from './pages/school/SchoolSettings'
 import SchoolSettingsUsers from './pages/school/SchoolSettingsUsers'
 import SchoolSettingsPreferences from './pages/school/SchoolSettingsPreferences'
+import SchoolSetup from './pages/school/SchoolSetup'
 
 export default function App() {
   return (
     <AuthProvider>
       <Routes>
+        {/* Telas públicas */}
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/payment/success" element={<PaymentSuccess />} />
+        <Route path="/payment/pending" element={<PaymentPending />} />
+        <Route path="/payment/canceled" element={<PaymentCanceled />} />
         {/* Telas compartilhadas (entrada única) */}
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/select-access" element={<SelectAccess />} />
 
         {/* Portal Escola — destino pós-login quando portal = SCHOOL */}
+        <Route path="/school/setup" element={<SchoolSetup />} />
         <Route path="/school/dashboard" element={<SchoolDashboard />} />
         <Route path="/school/reports" element={<SchoolReports />} />
         <Route path="/school/reports/exports" element={<SchoolReportExports />} />
@@ -234,7 +246,7 @@ export default function App() {
       <Route path="/help" element={<Help />} />
       <Route path="/help/:articleId" element={<HelpArticle />} />
       <Route path="/perfil" element={<Navigate to="/me" replace />} />
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<LandingPage />} />
         <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Routes>
     </AuthProvider>

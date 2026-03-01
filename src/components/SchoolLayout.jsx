@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { getMockSession, clearMockSchoolSession } from '../data/mockSchoolSession'
 
 const GRID = 8
 
@@ -103,13 +105,29 @@ const styles = {
  * Layout do Portal Escola: topbar sem School Switcher.
  * @param {{ children: React.ReactNode, pageTitle?: string, breadcrumb?: Array<{ to?: string, label: string }>, schoolName?: string }} props
  */
+/**
+ * Regra de produto (mock): só liberar /school/* se stage === "active".
+ * Após pagamento sucesso, PaymentSuccess seta stage = "active"; antes disso, redireciona para login.
+ */
 export default function SchoolLayout({ children, pageTitle, breadcrumb = [], schoolName }) {
   const { logout } = useAuth()
   const navigate = useNavigate()
+  const session = getMockSession()
+
+  useEffect(() => {
+    if (session && session.stage !== 'active') {
+      navigate('/login', { replace: true })
+    }
+  }, [session?.stage, navigate])
 
   const handleLogout = () => {
+    clearMockSchoolSession()
     logout()
     navigate('/login', { replace: true })
+  }
+
+  if (session && session.stage !== 'active') {
+    return null
   }
 
   return (

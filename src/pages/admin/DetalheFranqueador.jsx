@@ -38,6 +38,15 @@ const IconChevronRight = () => (
     <path d="M9 18l6-6-6-6" />
   </svg>
 )
+/** Ícone para dados mocados (demonstração) — remover quando conectar backend real */
+const IconMock = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M10 2v7.31" />
+    <path d="M14 9.3V2" />
+    <path d="M8.5 2h7" />
+    <path d="M14 9.3a6.5 6.5 0 1 1-4 0V9.3" />
+  </svg>
+)
 
 function StatusBadge({ status }) {
   const s = (status || '').toLowerCase()
@@ -103,10 +112,29 @@ const styles = {
     flex: '1 1 300px',
   },
   titulo: {
-    margin: '0 0 ' + GRID + 'px',
+    margin: 0,
     fontSize: 22,
     fontWeight: 600,
     color: 'var(--grafite-tecnico)',
+  },
+  tituloRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: GRID * 2,
+    flexWrap: 'wrap',
+    marginBottom: GRID,
+  },
+  badgeMock: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '4px 10px',
+    borderRadius: 8,
+    fontSize: 12,
+    fontWeight: 600,
+    background: 'rgba(44, 110, 242, 0.12)',
+    color: 'var(--azul-arena)',
+    cursor: 'help',
   },
   subtitulo: {
     margin: 0,
@@ -541,7 +569,15 @@ export default function DetalheFranqueador() {
               </>
             ) : errorFranqueador ? null : (
               <>
-                <h1 style={styles.titulo}>Franqueador: {franqueador?.name || '—'}</h1>
+                <div style={styles.tituloRow}>
+                  <h1 style={styles.titulo}>Franqueador: {franqueador?.name || '—'}</h1>
+                  {franqueador?._mock && (
+                    <span style={styles.badgeMock} title="Dados de demonstração (mock) — excluir ao conectar backend">
+                      <IconMock />
+                      <span>Demo</span>
+                    </span>
+                  )}
+                </div>
                 <p style={styles.subtitulo}>ID: {id}</p>
               </>
             )}
@@ -637,11 +673,23 @@ export default function DetalheFranqueador() {
               <>
                 <div style={styles.card}>
                   <h3 style={styles.cardTitulo}>Dados do franqueador</h3>
-                  <div style={styles.campoLinha}><span style={styles.campoLabel}>Nome do franqueador</span><span style={styles.campoValor}>{franqueador.name || '—'}</span></div>
+                  <div style={styles.campoLinha}><span style={styles.campoLabel}>Nome (razão social)</span><span style={styles.campoValor}>{franqueador.name || '—'}</span></div>
+                  <div style={styles.campoLinha}><span style={styles.campoLabel}>Nome fantasia</span><span style={styles.campoValor}>{franqueador.trade_name || '—'}</span></div>
+                  <div style={styles.campoLinha}><span style={styles.campoLabel}>Nome comercial</span><span style={styles.campoValor}>{franqueador.commercial_name || '—'}</span></div>
                   <div style={styles.campoLinha}><span style={styles.campoLabel}>Responsável</span><span style={styles.campoValor}>{franqueador.owner_name || '—'}</span></div>
                   <div style={styles.campoLinha}><span style={styles.campoLabel}>Email principal</span><span style={styles.campoValor}>{franqueador.email || '—'}</span></div>
                   <div style={styles.campoLinha}><span style={styles.campoLabel}>Telefone</span><span style={styles.campoValor}>{franqueador.phone || '—'}</span></div>
-                  <div style={styles.campoLinha}><span style={styles.campoLabel}>Documento</span><span style={styles.campoValor}>{franqueador.document || '—'}</span></div>
+                  <div style={styles.campoLinha}><span style={styles.campoLabel}>Documento</span><span style={styles.campoValor}>{(franqueador.document_type ? `${franqueador.document_type.toUpperCase()}: ` : '')}{franqueador.document || '—'}</span></div>
+                  {(franqueador.address_cep || franqueador.address_street || franqueador.address_city) && (
+                    <div style={styles.campoLinha}>
+                      <span style={styles.campoLabel}>Endereço</span>
+                      <span style={styles.campoValor}>
+                        {[franqueador.address_street, franqueador.address_number, franqueador.address_complement, franqueador.address_neighborhood, franqueador.address_city, franqueador.address_state, franqueador.address_cep]
+                          .filter(Boolean)
+                          .join(', ') || '—'}
+                      </span>
+                    </div>
+                  )}
                   <div style={styles.campoLinha}><span style={styles.campoLabel}>Status</span><span style={styles.campoValor}><StatusBadge status={franqueador.status} /></span></div>
                   <div style={styles.campoLinha}><span style={styles.campoLabel}>Criado em</span><span style={styles.campoValor}>{formatCreatedAtDateTime(franqueador.created_at)}</span></div>
                 </div>

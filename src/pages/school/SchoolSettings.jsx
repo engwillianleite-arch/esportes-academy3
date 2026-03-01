@@ -8,6 +8,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import SchoolLayout from '../../components/SchoolLayout'
 import { useAuth } from '../../contexts/AuthContext'
 import { getSchoolSettings, updateSchoolSettings } from '../../api/schoolPortal'
+import { setMockSchoolName } from '../../data/mockSchoolSession'
 
 const GRID = 8
 
@@ -273,7 +274,9 @@ export default function SchoolSettings() {
       .then((data) => {
         setSuccess('Dados da escola atualizados com sucesso.')
         setError('')
-        setSchoolName(data?.name ?? form.name)
+        const name = data?.name ?? form.name
+        setSchoolName(name)
+        setMockSchoolName(name)
         setInitial(form)
       })
       .catch((err) => {

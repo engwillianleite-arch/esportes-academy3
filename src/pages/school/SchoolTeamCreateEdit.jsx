@@ -9,6 +9,7 @@ import {
   createSchoolTeam,
   updateSchoolTeam,
 } from '../../api/schoolPortal'
+import { getMockCounts, updateMockCounts } from '../../data/mockSchoolSession'
 
 const GRID = 8
 
@@ -571,6 +572,9 @@ export default function SchoolTeamCreateEdit() {
 
     request
       .then((res) => {
+        if (!isEdit) {
+          updateMockCounts({ teams_count: (getMockCounts().teams_count ?? 0) + 1 })
+        }
         setSuccessMessage('Turma salva com sucesso.')
         setTimeout(() => {
           navigate(isEdit ? `/school/teams/${teamId}` : `/school/teams/${res.id}`)

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { getPostLoginOptions, selectAccess } from '../api/auth'
+import { setMockSession } from '../data/mockSchoolSession'
 
 const GRID = 8
 
@@ -201,7 +202,7 @@ export default function SelectAccess() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const returnToParam = searchParams.get('returnTo') || ''
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [submitLoading, setSubmitLoading] = useState(false)
@@ -296,6 +297,18 @@ export default function SelectAccess() {
     try {
       const { redirect_to } = await selectAccess(payload)
       const path = redirect_to.startsWith('/') ? redirect_to : `/${redirect_to}`
+
+      if (path.startsWith('/school/') && selectedPortal === 'SCHOOL') {
+        const schoolId = context.school_id ?? schools[0]?.school_id ?? 'demo-school-1'
+        const chosen = schools.find((s) => s.school_id === schoolId)
+        setMockSession({
+          user_id: user?.id ?? 'u1',
+          school_id: schoolId,
+          school_name: chosen?.school_name ?? 'Minha Escola',
+          role: schoolOption?.role ?? 'SchoolOwner',
+        })
+      }
+
       navigate(path, { replace: true })
     } catch (err) {
       setError(err.message || 'Não foi possível validar seu acesso. Tente novamente.')

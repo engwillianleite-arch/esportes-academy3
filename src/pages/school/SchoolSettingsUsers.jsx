@@ -16,6 +16,7 @@ import {
   removeSchoolSettingsUser,
   getSchoolTeamsForScope,
 } from '../../api/schoolPortal'
+import { getMockCounts, updateMockCounts } from '../../data/mockSchoolSession'
 
 const GRID = 8
 
@@ -376,6 +377,7 @@ export default function SchoolSettingsUsers() {
       scope,
     })
       .then(() => {
+        updateMockCounts({ users_count: (getMockCounts().users_count ?? 1) + 1 })
         setSuccess('Usuário adicionado com sucesso.')
         setError('')
         closeAdd()

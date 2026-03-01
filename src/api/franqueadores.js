@@ -3,16 +3,51 @@
  * - List: id, name, owner_name, email, schools_count, status, created_at
  * - Params: search, status, created_from, created_to, page, page_size
  * - Backend autoriza por policy Admin (RBAC); auditoria Admin_ListFranchisors.
+ * Com Supabase configurado (VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY), usa banco real.
  */
 
-// Mock mutável para criar/editar (em produção o backend persiste)
+import { supabase } from '../lib/supabase'
+import {
+  listFranqueadoresSupabase,
+  getFranqueadorByIdSupabase,
+  createFranqueadorSupabase,
+  updateFranqueadorSupabase,
+  listEscolasByFranqueadorSupabase,
+  listEscolasSupabase,
+  getSchoolByIdSupabase,
+  getSchoolSummarySupabase,
+  listFranchisorsForSelectSupabase,
+  createSchoolSupabase,
+  updateSchoolSupabase,
+  listFranchisorUsersSupabase,
+  listFranchisorSchoolsForScopeSupabase,
+  createFranchisorUserSupabase,
+  getFranchisorUserSupabase,
+  updateFranchisorUserSupabase,
+  deleteFranchisorUserSupabase,
+  getFranchisorStatusSupabase,
+  getFranchisorStatusHistorySupabase,
+  postFranchisorStatusTransitionSupabase,
+  getSchoolStatusSupabase,
+  getSchoolStatusHistorySupabase,
+  postSchoolStatusTransitionSupabase,
+  listSchoolUsersSupabase,
+  createSchoolUserSupabase,
+  getSchoolUserSupabase,
+  updateSchoolUserSupabase,
+  deleteSchoolUserSupabase,
+} from './supabaseAdmin'
+
+const USE_SUPABASE = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY)
+
+// Mock mutável para criar/editar (quando Supabase não está configurado)
 let MOCK_FRANQUEADORES = [
-  { id: '1', name: 'Rede Arena', owner_name: 'Carlos Silva', email: 'contato@redearena.com.br', phone: '(11) 98765-4321', document: '12.345.678/0001-90', schools_count: 24, status: 'ativo', created_at: '2024-01-15T10:00:00Z', notes_internal: null },
-  { id: '2', name: 'Brasil Sports', owner_name: 'Ana Costa', email: 'admin@brasilsports.com.br', phone: '(41) 3333-4444', document: '98.765.432/0001-10', schools_count: 18, status: 'ativo', created_at: '2024-03-22T14:30:00Z', notes_internal: null },
-  { id: '3', name: 'Academia Champions', owner_name: 'Roberto Lima', email: 'roberto@champions.com.br', phone: null, document: null, schools_count: 8, status: 'pendente', created_at: '2025-01-10T09:00:00Z', notes_internal: 'Aguardando documentação.' },
-  { id: '4', name: 'Escola do Atleta', owner_name: 'Maria Santos', email: 'maria@escoladoatleta.com.br', phone: '(21) 99999-0000', document: '11.222.333/0001-44', schools_count: 12, status: 'ativo', created_at: '2024-06-05T11:20:00Z', notes_internal: null },
-  { id: '5', name: 'Centro Esportivo Alpha', owner_name: 'Paulo Oliveira', email: 'contato@alphaesportes.com.br', phone: null, document: null, schools_count: 0, status: 'suspenso', created_at: '2024-09-12T08:00:00Z', notes_internal: null },
-  { id: '6', name: 'Rede Futuro', owner_name: 'Fernanda Souza', email: 'fernanda@redfuturo.com.br', phone: '(51) 3333-5555', document: null, schools_count: 5, status: 'pendente', created_at: '2025-02-01T16:45:00Z', notes_internal: null },
+  { id: '1', name: 'Rede Arena', trade_name: 'Arena Kids', commercial_name: 'Rede Arena Esportes Ltda', owner_name: 'Carlos Silva', email: 'contato@redearena.com.br', phone: '(11) 98765-4321', document_type: 'cnpj', document: '12.345.678/0001-90', address_cep: '01310-100', address_street: 'Avenida Paulista', address_number: '1000', address_complement: 'Sala 101', address_neighborhood: 'Bela Vista', address_city: 'São Paulo', address_state: 'SP', schools_count: 24, status: 'ativo', created_at: '2024-01-15T10:00:00Z', notes_internal: null },
+  { id: '2', name: 'Brasil Sports', trade_name: 'Brasil Sports', commercial_name: 'Brasil Sports Consultoria Ltda', owner_name: 'Ana Costa', email: 'admin@brasilsports.com.br', phone: '(41) 3333-4444', document_type: 'cnpj', document: '98.765.432/0001-10', address_cep: '80010-000', address_street: 'Rua XV de Novembro', address_number: '500', address_complement: null, address_neighborhood: 'Centro', address_city: 'Curitiba', address_state: 'PR', schools_count: 18, status: 'ativo', created_at: '2024-03-22T14:30:00Z', notes_internal: null },
+  { id: '3', name: 'Academia Champions', trade_name: null, commercial_name: null, owner_name: 'Roberto Lima', email: 'roberto@champions.com.br', phone: null, document_type: null, document: null, address_cep: null, address_street: null, address_number: null, address_complement: null, address_neighborhood: null, address_city: null, address_state: null, schools_count: 8, status: 'pendente', created_at: '2025-01-10T09:00:00Z', notes_internal: 'Aguardando documentação.' },
+  { id: '4', name: 'Escola do Atleta', trade_name: null, commercial_name: null, owner_name: 'Maria Santos', email: 'maria@escoladoatleta.com.br', phone: '(21) 99999-0000', document_type: 'cnpj', document: '11.222.333/0001-44', address_cep: null, address_street: null, address_number: null, address_complement: null, address_neighborhood: null, address_city: null, address_state: null, schools_count: 12, status: 'ativo', created_at: '2024-06-05T11:20:00Z', notes_internal: null },
+  { id: '5', name: 'Centro Esportivo Alpha', trade_name: null, commercial_name: null, owner_name: 'Paulo Oliveira', email: 'contato@alphaesportes.com.br', phone: null, document_type: null, document: null, address_cep: null, address_street: null, address_number: null, address_complement: null, address_neighborhood: null, address_city: null, address_state: null, schools_count: 0, status: 'suspenso', created_at: '2024-09-12T08:00:00Z', notes_internal: null },
+  { id: '6', name: 'Rede Futuro', trade_name: null, commercial_name: null, owner_name: 'Fernanda Souza', email: 'fernanda@redfuturo.com.br', phone: '(51) 3333-5555', document_type: null, document: null, address_cep: null, address_street: null, address_number: null, address_complement: null, address_neighborhood: null, address_city: null, address_state: null, schools_count: 5, status: 'pendente', created_at: '2025-02-01T16:45:00Z', notes_internal: null },
 ]
 
 /** Mock: escolas por franqueador (franchisor_id). Backend: GET schools by franchisor_id com policy Admin. */
@@ -49,9 +84,10 @@ function formatCreatedAt(iso) {
 }
 
 /**
- * Simula listagem com filtros e paginação (mock; backend fará o mesmo com policy Admin).
+ * Lista franqueadores (Supabase ou mock).
  */
 export async function listFranqueadores(params = {}) {
+  if (USE_SUPABASE && supabase) return listFranqueadoresSupabase(params)
   const {
     search = '',
     status = '',
@@ -97,8 +133,11 @@ export async function listFranqueadores(params = {}) {
   const start = (Number(page) - 1) * Number(page_size)
   const pageList = list.slice(start, start + Number(page_size))
 
+  // Marca itens como mock para o front exibir ícone (remover quando conectar backend real)
+  const dataWithMockFlag = pageList.map((f) => ({ ...f, _mock: true }))
+
   return {
-    data: pageList,
+    data: dataWithMockFlag,
     total,
     page: Number(page),
     page_size: Number(page_size),
@@ -111,6 +150,7 @@ export async function listFranqueadores(params = {}) {
  * Backend valida policy Admin; 403 se sem permissão.
  */
 export async function getFranqueadorById(id) {
+  if (USE_SUPABASE && supabase) return getFranqueadorByIdSupabase(id)
   await new Promise((r) => setTimeout(r, 500))
   const f = MOCK_FRANQUEADORES.find((x) => String(x.id) === String(id))
   if (!f) {
@@ -124,16 +164,27 @@ export async function getFranqueadorById(id) {
   return {
     id: f.id,
     name: f.name,
+    trade_name: f.trade_name ?? null,
+    commercial_name: f.commercial_name ?? null,
     owner_name: f.owner_name,
     email: f.email,
     phone: f.phone ?? null,
+    document_type: f.document_type ?? null,
     document: f.document ?? null,
     status: f.status,
     notes_internal: f.notes_internal ?? null,
     created_at: f.created_at,
+    address_cep: f.address_cep ?? null,
+    address_street: f.address_street ?? null,
+    address_number: f.address_number ?? null,
+    address_complement: f.address_complement ?? null,
+    address_neighborhood: f.address_neighborhood ?? null,
+    address_city: f.address_city ?? null,
+    address_state: f.address_state ?? null,
     schools_count: escolas.length,
     schools_active_count: active,
     schools_pending_count: pending,
+    _mock: true, // Dado de demonstração — remover quando conectar backend real
   }
 }
 
@@ -142,6 +193,7 @@ export async function getFranqueadorById(id) {
  * Retorno: id, name, city?, state?, status, created_at, students_count? (opcional).
  */
 export async function listEscolasByFranqueador(franchisorId, params = {}) {
+  if (USE_SUPABASE && supabase) return listEscolasByFranqueadorSupabase(franchisorId, params)
   const { search = '', status: statusFilter = '', page = 1, page_size = 10 } = params
   await new Promise((r) => setTimeout(r, 400))
   let list = [...(MOCK_ESCOLAS_POR_FRANQUEADOR[String(franchisorId)] || [])]
@@ -173,6 +225,7 @@ export async function listEscolasByFranqueador(franchisorId, params = {}) {
  * Retorno: data[] com id, name, city?, state?, status, created_at, franchisor_id, franchisor_name, students_count?.
  */
 export async function listEscolas(params = {}) {
+  if (USE_SUPABASE && supabase) return listEscolasSupabase(params)
   const {
     search = '',
     status: statusFilter = '',
@@ -234,6 +287,7 @@ export async function listEscolas(params = {}) {
  * responsible_name?, email?, phone?, city?, state?, address?, notes_internal?, created_at. Policy: Admin-only.
  */
 export async function getSchoolById(schoolId) {
+  if (USE_SUPABASE && supabase) return getSchoolByIdSupabase(schoolId)
   await new Promise((r) => setTimeout(r, 400))
   for (const [fid, escolas] of Object.entries(MOCK_ESCOLAS_POR_FRANQUEADOR)) {
     const esc = escolas.find((s) => String(s.id) === String(schoolId))
@@ -266,6 +320,7 @@ export async function getSchoolById(schoolId) {
  * Retorno: students_count, teams_count?, open_invoices_count?
  */
 export async function getSchoolSummary(schoolId) {
+  if (USE_SUPABASE && supabase) return getSchoolSummarySupabase(schoolId)
   await new Promise((r) => setTimeout(r, 300))
   for (const escolas of Object.values(MOCK_ESCOLAS_POR_FRANQUEADOR)) {
     const esc = escolas.find((s) => String(s.id) === String(schoolId))
@@ -292,6 +347,7 @@ export function formatCreatedAtDateTime(iso) {
  * Lista franqueadores para select (Ativo e Pendente). Retorno: id, name, status.
  */
 export async function listFranchisorsForSelect() {
+  if (USE_SUPABASE && supabase) return listFranchisorsForSelectSupabase()
   await new Promise((r) => setTimeout(r, 200))
   const list = MOCK_FRANQUEADORES.filter(
     (f) => (f.status || '').toLowerCase() === 'ativo' || (f.status || '').toLowerCase() === 'pendente'
@@ -315,6 +371,7 @@ function nextSchoolId() {
  * Backend policy Admin; valida franchisor_id. Retorno: school com id e campos principais.
  */
 export async function createSchool(payload) {
+  if (USE_SUPABASE && supabase) return createSchoolSupabase(payload)
   await new Promise((r) => setTimeout(r, 600))
   const fid = String(payload.franchisor_id || '')
   const f = MOCK_FRANQUEADORES.find((x) => String(x.id) === fid)
@@ -364,6 +421,7 @@ export async function createSchool(payload) {
  * PATCH /schools/{school_id} — atualizar escola. Payload: campos editáveis. Backend policy Admin.
  */
 export async function updateSchool(schoolId, payload) {
+  if (USE_SUPABASE && supabase) return updateSchoolSupabase(schoolId, payload)
   await new Promise((r) => setTimeout(r, 500))
   for (const [fid, escolas] of Object.entries(MOCK_ESCOLAS_POR_FRANQUEADOR)) {
     const idx = escolas.findIndex((s) => String(s.id) === String(schoolId))
@@ -411,18 +469,29 @@ export async function updateSchool(schoolId, payload) {
  * Backend retorna id + campos principais; policy Admin.
  */
 export async function createFranqueador(payload) {
+  if (USE_SUPABASE && supabase) return createFranqueadorSupabase(payload)
   await new Promise((r) => setTimeout(r, 600))
   const id = String(Math.max(...MOCK_FRANQUEADORES.map((f) => Number(f.id) || 0), 0) + 1)
   const created_at = new Date().toISOString()
   const newItem = {
     id,
     name: payload.name || '',
+    trade_name: payload.trade_name || null,
+    commercial_name: payload.commercial_name || null,
     owner_name: payload.owner_name || '',
     email: payload.email || '',
     phone: payload.phone || null,
+    document_type: payload.document_type || null,
     document: payload.document || null,
     status: payload.status || 'pendente',
     notes_internal: payload.notes_internal || null,
+    address_cep: payload.address_cep || null,
+    address_street: payload.address_street || null,
+    address_number: payload.address_number || null,
+    address_complement: payload.address_complement || null,
+    address_neighborhood: payload.address_neighborhood || null,
+    address_city: payload.address_city || null,
+    address_state: payload.address_state || null,
     created_at,
     schools_count: 0,
   }
@@ -435,6 +504,7 @@ export async function createFranqueador(payload) {
  * Payload: campos editáveis. Backend policy Admin.
  */
 export async function updateFranqueador(id, payload) {
+  if (USE_SUPABASE && supabase) return updateFranqueadorSupabase(id, payload)
   await new Promise((r) => setTimeout(r, 500))
   const idx = MOCK_FRANQUEADORES.findIndex((x) => String(x.id) === String(id))
   if (idx === -1) {
@@ -446,12 +516,22 @@ export async function updateFranqueador(id, payload) {
   const updated = {
     ...current,
     name: payload.name !== undefined ? payload.name : current.name,
+    trade_name: payload.trade_name !== undefined ? payload.trade_name : current.trade_name,
+    commercial_name: payload.commercial_name !== undefined ? payload.commercial_name : current.commercial_name,
     owner_name: payload.owner_name !== undefined ? payload.owner_name : current.owner_name,
     email: payload.email !== undefined ? payload.email : current.email,
     phone: payload.phone !== undefined ? payload.phone : current.phone,
+    document_type: payload.document_type !== undefined ? payload.document_type : current.document_type,
     document: payload.document !== undefined ? payload.document : current.document,
     status: payload.status !== undefined ? payload.status : current.status,
     notes_internal: payload.notes_internal !== undefined ? payload.notes_internal : current.notes_internal,
+    address_cep: payload.address_cep !== undefined ? payload.address_cep : current.address_cep,
+    address_street: payload.address_street !== undefined ? payload.address_street : current.address_street,
+    address_number: payload.address_number !== undefined ? payload.address_number : current.address_number,
+    address_complement: payload.address_complement !== undefined ? payload.address_complement : current.address_complement,
+    address_neighborhood: payload.address_neighborhood !== undefined ? payload.address_neighborhood : current.address_neighborhood,
+    address_city: payload.address_city !== undefined ? payload.address_city : current.address_city,
+    address_state: payload.address_state !== undefined ? payload.address_state : current.address_state,
   }
   MOCK_FRANQUEADORES = MOCK_FRANQUEADORES.slice(0, idx).concat(updated, MOCK_FRANQUEADORES.slice(idx + 1))
   return updated
@@ -496,6 +576,7 @@ function getUsersByFranchisor(franchisorId) {
  * Retorno: data[], total, page, page_size, total_pages
  */
 export async function listFranchisorUsers(franchisorId, params = {}) {
+  if (USE_SUPABASE && supabase) return listFranchisorUsersSupabase(franchisorId, params)
   const { search = '', role: roleFilter = '', status: statusFilter = '', page = 1, page_size = 10 } = params
   await new Promise((r) => setTimeout(r, 400))
   let list = getUsersByFranchisor(franchisorId)
@@ -530,6 +611,7 @@ export async function listFranchisorUsers(franchisorId, params = {}) {
  * Retorno mínimo: id, name, status. Usar listEscolasByFranqueador com page_size alto.
  */
 export async function listFranchisorSchoolsForScope(franchisorId) {
+  if (USE_SUPABASE && supabase) return listFranchisorSchoolsForScopeSupabase(franchisorId)
   const res = await listEscolasByFranqueador(franchisorId, { page: 1, page_size: 500 })
   return res.data || []
 }
@@ -539,6 +621,7 @@ export async function listFranchisorSchoolsForScope(franchisorId) {
  * Payload: name, email, role, scope_type, scope_school_ids?
  */
 export async function createFranchisorUser(franchisorId, payload) {
+  if (USE_SUPABASE && supabase) return createFranchisorUserSupabase(franchisorId, payload)
   await new Promise((r) => setTimeout(r, 500))
   const list = getUsersByFranchisor(franchisorId)
   const maxId = list.reduce((acc, u) => Math.max(acc, parseInt(String(u.user_id).replace('u', ''), 10) || 0), 0)
@@ -567,6 +650,7 @@ export async function createFranchisorUser(franchisorId, payload) {
  * GET /franchisors/{franchisor_id}/users/{user_id} — um usuário (para edição)
  */
 export async function getFranchisorUser(franchisorId, userId) {
+  if (USE_SUPABASE && supabase) return getFranchisorUserSupabase(franchisorId, userId)
   await new Promise((r) => setTimeout(r, 300))
   const list = MOCK_USUARIOS_FRANQUEADOR[String(franchisorId)] || []
   const user = list.find((u) => String(u.user_id) === String(userId))
@@ -583,6 +667,7 @@ export async function getFranchisorUser(franchisorId, userId) {
  * Payload: role, scope_type, scope_school_ids?
  */
 export async function updateFranchisorUser(franchisorId, userId, payload) {
+  if (USE_SUPABASE && supabase) return updateFranchisorUserSupabase(franchisorId, userId, payload)
   await new Promise((r) => setTimeout(r, 400))
   const list = MOCK_USUARIOS_FRANQUEADOR[String(franchisorId)] || []
   const idx = list.findIndex((u) => String(u.user_id) === String(userId))
@@ -611,6 +696,7 @@ export async function updateFranchisorUser(franchisorId, userId, payload) {
  * DELETE /franchisors/{franchisor_id}/users/{user_id} — revogar membership
  */
 export async function deleteFranchisorUser(franchisorId, userId) {
+  if (USE_SUPABASE && supabase) return deleteFranchisorUserSupabase(franchisorId, userId)
   await new Promise((r) => setTimeout(r, 400))
   const list = MOCK_USUARIOS_FRANQUEADOR[String(franchisorId)] || []
   const idx = list.findIndex((u) => String(u.user_id) === String(userId))
@@ -666,6 +752,7 @@ function getStatusHistory(franchisorId) {
  * Retorno: current_status, last_changed_at, last_changed_by (nome/email), last_reason_category, last_reason_details
  */
 export async function getFranchisorStatus(franchisorId) {
+  if (USE_SUPABASE && supabase) return getFranchisorStatusSupabase(franchisorId)
   await new Promise((r) => setTimeout(r, 400))
   const f = MOCK_FRANQUEADORES.find((x) => String(x.id) === String(franchisorId))
   if (!f) {
@@ -690,6 +777,7 @@ export async function getFranchisorStatus(franchisorId) {
  * Retorno: items (changed_at, from_status, to_status, actor, reason_category, reason_details), total, page, total_pages
  */
 export async function getFranchisorStatusHistory(franchisorId, params = {}) {
+  if (USE_SUPABASE && supabase) return getFranchisorStatusHistorySupabase(franchisorId, params)
   const { page = 1, page_size = 10 } = params
   await new Promise((r) => setTimeout(r, 350))
   const f = MOCK_FRANQUEADORES.find((x) => String(x.id) === String(franchisorId))
@@ -717,6 +805,7 @@ export async function getFranchisorStatusHistory(franchisorId, params = {}) {
  * Backend valida transição (Pendente->Ativo; Ativo->Suspenso; Suspenso->Ativo) e policy Admin.
  */
 export async function postFranchisorStatusTransition(franchisorId, payload) {
+  if (USE_SUPABASE && supabase) return postFranchisorStatusTransitionSupabase(franchisorId, payload)
   await new Promise((r) => setTimeout(r, 600))
   const idx = MOCK_FRANQUEADORES.findIndex((x) => String(x.id) === String(franchisorId))
   if (idx === -1) {
@@ -798,6 +887,7 @@ function findSchoolInMock(schoolId) {
  * Retorno: current_status, last_changed_at, last_changed_by, last_reason_category, last_reason_details
  */
 export async function getSchoolStatus(schoolId) {
+  if (USE_SUPABASE && supabase) return getSchoolStatusSupabase(schoolId)
   await new Promise((r) => setTimeout(r, 400))
   const found = findSchoolInMock(schoolId)
   if (!found) {
@@ -822,6 +912,7 @@ export async function getSchoolStatus(schoolId) {
  * Params: page, page_size
  */
 export async function getSchoolStatusHistory(schoolId, params = {}) {
+  if (USE_SUPABASE && supabase) return getSchoolStatusHistorySupabase(schoolId, params)
   const { page = 1, page_size = 10 } = params
   await new Promise((r) => setTimeout(r, 350))
   const found = findSchoolInMock(schoolId)
@@ -848,6 +939,7 @@ export async function getSchoolStatusHistory(schoolId, params = {}) {
  * Payload: action (SUSPEND | REACTIVATE), reason_category, reason_details
  */
 export async function postSchoolStatusTransition(schoolId, payload) {
+  if (USE_SUPABASE && supabase) return postSchoolStatusTransitionSupabase(schoolId, payload)
   await new Promise((r) => setTimeout(r, 600))
   const found = findSchoolInMock(schoolId)
   if (!found) {
@@ -927,6 +1019,7 @@ function getUsersBySchool(schoolId) {
  * Params: search, role, status?, page, page_size
  */
 export async function listSchoolUsers(schoolId, params = {}) {
+  if (USE_SUPABASE && supabase) return listSchoolUsersSupabase(schoolId, params)
   const { search = '', role: roleFilter = '', status: statusFilter = '', page = 1, page_size = 10 } = params
   await new Promise((r) => setTimeout(r, 400))
   let list = getUsersBySchool(schoolId)
@@ -961,6 +1054,7 @@ export async function listSchoolUsers(schoolId, params = {}) {
  * Payload: name, email, role, scope_type, scope_school_ids? (default SINGLE_SCHOOL = esta escola)
  */
 export async function createSchoolUser(schoolId, payload) {
+  if (USE_SUPABASE && supabase) return createSchoolUserSupabase(schoolId, payload)
   await new Promise((r) => setTimeout(r, 500))
   const list = getUsersBySchool(schoolId)
   const maxId = list.reduce((acc, u) => Math.max(acc, parseInt(String(u.user_id).replace('su', ''), 10) || 0), 0)
@@ -988,6 +1082,7 @@ export async function createSchoolUser(schoolId, payload) {
  * GET /schools/{school_id}/users/{user_id}
  */
 export async function getSchoolUser(schoolId, userId) {
+  if (USE_SUPABASE && supabase) return getSchoolUserSupabase(schoolId, userId)
   await new Promise((r) => setTimeout(r, 300))
   const list = MOCK_USUARIOS_ESCOLA[String(schoolId)] || []
   const user = list.find((u) => String(u.user_id) === String(userId))
@@ -1004,6 +1099,7 @@ export async function getSchoolUser(schoolId, userId) {
  * Payload: role, scope_type, scope_school_ids? (deve incluir school_id atual quando gerenciado por esta tela)
  */
 export async function updateSchoolUser(schoolId, userId, payload) {
+  if (USE_SUPABASE && supabase) return updateSchoolUserSupabase(schoolId, userId, payload)
   await new Promise((r) => setTimeout(r, 400))
   const list = MOCK_USUARIOS_ESCOLA[String(schoolId)] || []
   const idx = list.findIndex((u) => String(u.user_id) === String(userId))
@@ -1032,6 +1128,7 @@ export async function updateSchoolUser(schoolId, userId, payload) {
  * DELETE /schools/{school_id}/users/{user_id} — revogar membership
  */
 export async function deleteSchoolUser(schoolId, userId) {
+  if (USE_SUPABASE && supabase) return deleteSchoolUserSupabase(schoolId, userId)
   await new Promise((r) => setTimeout(r, 400))
   const list = MOCK_USUARIOS_ESCOLA[String(schoolId)] || []
   const idx = list.findIndex((u) => String(u.user_id) === String(userId))

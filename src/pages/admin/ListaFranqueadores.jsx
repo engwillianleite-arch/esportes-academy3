@@ -32,6 +32,15 @@ const IconChevronRight = () => (
     <path d="M9 18l6-6-6-6" />
   </svg>
 )
+/** Ícone para identificar item com dados mocados (demonstração) — remover quando conectar backend real */
+const IconMock = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M10 2v7.31" />
+    <path d="M14 9.3V2" />
+    <path d="M8.5 2h7" />
+    <path d="M14 9.3a6.5 6.5 0 1 1-4 0V9.3" />
+  </svg>
+)
 
 function StatusBadge({ status }) {
   const s = (status || '').toLowerCase()
@@ -312,7 +321,16 @@ export default function ListaFranqueadores() {
                         onKeyDown={(e) => e.key === 'Enter' && irDetalhe(f.id)}
                         aria-label={`Ver detalhes de ${f.name}`}
                       >
-                        <td style={styles.td}>{f.name}</td>
+                        <td style={styles.td}>
+                          <span style={styles.nomeComMock}>
+                            {f._mock && (
+                              <span style={styles.mockIcon} title="Dados de demonstração (mock) — excluir ao conectar backend">
+                                <IconMock />
+                              </span>
+                            )}
+                            {f.name}
+                          </span>
+                        </td>
                         <td style={styles.td}>{f.owner_name}</td>
                         <td style={styles.td}>{f.email}</td>
                         <td style={styles.td}>{f.schools_count}</td>
@@ -541,6 +559,17 @@ const styles = {
     padding: `${GRID * 2}px ${GRID * 3}px`,
     borderBottom: '1px solid #eee',
     color: 'var(--grafite-tecnico)',
+  },
+  nomeComMock: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: GRID,
+  },
+  mockIcon: {
+    display: 'inline-flex',
+    color: 'var(--azul-arena)',
+    opacity: 0.85,
+    cursor: 'help',
   },
   tdVazio: {
     padding: GRID * 6,

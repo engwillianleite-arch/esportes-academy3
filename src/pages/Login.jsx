@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { login as apiLogin, getRedirectPath } from '../api/auth'
+import { setMockSession } from '../data/mockSchoolSession'
 
 const GRID = 8
 
@@ -199,9 +200,21 @@ export default function Login() {
       const data = await apiLogin(trimmedEmail, password)
       setAuth(data)
       if (data.default_redirect) {
-        const targetPath = isReturnToAllowed(returnTo)
+        let targetPath = isReturnToAllowed(returnTo)
           ? (returnTo.startsWith('/') ? returnTo : `/${returnTo}`)
           : getRedirectPath(data.default_redirect)
+        if (targetPath.startsWith('/school/')) {
+          const schoolId = data.default_redirect.context?.school_id ?? 'demo-school-1'
+          const schoolName = data.default_redirect.context?.school_name ?? 'Minha Escola'
+          const schoolMembership = data.memberships?.find((m) => m.portal === 'SCHOOL' && m.school_id === schoolId)
+          setMockSession({
+            user_id: data.user?.id ?? 'u1',
+            school_id: schoolId,
+            school_name: schoolName || (schoolMembership?.school_name ?? 'Minha Escola'),
+            role: schoolMembership?.role ?? 'SchoolOwner',
+          })
+          targetPath = targetPath.replace(/\?.*$/, '')
+        }
         navigate(targetPath, { replace: true })
       } else {
         const query = returnTo && isReturnToAllowed(returnTo)

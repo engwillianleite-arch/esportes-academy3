@@ -2,8 +2,12 @@
  * Contrato backend (frontend apenas consome):
  * GET /audit-logs — params: search, actor, entity_type, entity_id, school_id, event_type, from, to, page, page_size
  * GET /audit-logs/:id — detalhe do evento (metadata com before/after quando existir)
- * Policy: Admin-only. Dados sensíveis mascarados.
+ * Policy: Admin-only. Com Supabase configurado usa tabela audit_logs.
  */
+
+import { supabase } from '../lib/supabase'
+
+const USE_SUPABASE = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY)
 
 function parseDate(str) {
   if (!str) return null
@@ -215,10 +219,74 @@ const MOCK_AUDIT_EXTRA = {
 }
 
 /**
- * GET /audit-logs — listagem com filtros e paginação (mock).
+ * GET /audit-logs — listagem com filtros e paginação (Supabase ou mock).
  * Backend: policy Admin-only.
  */
 export async function listAuditLogs(params = {}) {
+  if (USE_SUPABASE && supabase) {
+    const {
+      search = '',
+      actor = '',
+      entity_type = '',
+      entity_id = '',
+      school_id = '',
+      event_type = '',
+      from = '',
+      to = '',
+      page = 1,
+      page_size = 10,
+    } = params
+    let q = supabase.from('audit_logs').select('*', { count: 'exact' }).order('occurred_at', { ascending: false })
+    const searchLower = (search || '').toLowerCase().trim()
+    if (searchLower) {
+      q = q.or(`actor_name.ilike.%${searchLower}%,actor_email.ilike.%${searchLower}%,entity_id.ilike.%${searchLower}%`)
+    }
+    const actorLower = (actor || '').toLowerCase().trim()
+    if (actorLower) {
+      q = q.or(`actor_name.ilike.%${actorLower}%,actor_email.ilike.%${actorLower}%`)
+    }
+    if (entity_type && entity_type !== 'todos') q = q.eq('entity_type', entity_type)
+    if (entity_id && entity_id.trim()) q = q.eq('entity_id', entity_id.trim())
+    if (school_id && school_id !== '' && school_id !== 'todas') {
+      if (school_id === '__empty__') q = q.is('school_id', null)
+      else q = q.eq('school_id', school_id)
+    }
+    if (event_type && event_type !== 'todos') q = q.eq('event_type', event_type)
+    if (from) {
+      const fromDate = parseDate(from)
+      if (fromDate) q = q.gte('occurred_at', fromDate.toISOString())
+    }
+    if (to) {
+      const toDate = parseDate(to)
+      if (toDate) q = q.lte('occurred_at', toDate.toISOString())
+    }
+    const start = (Number(page) - 1) * Number(page_size)
+    const { data: rows, error, count } = await q.range(start, start + Number(page_size) - 1)
+    if (error) throw new Error(error.message || 'Erro ao listar auditoria')
+    const list = (rows || []).map((r) => ({
+      id: r.id,
+      occurred_at: r.occurred_at,
+      actor_user_id: r.actor_user_id,
+      actor_name: r.actor_name,
+      actor_email: r.actor_email,
+      event_type: r.event_type,
+      entity_type: r.entity_type,
+      entity_id: r.entity_id,
+      school_id: r.school_id,
+      franchisor_id: r.franchisor_id,
+      ip_address: r.ip_address,
+      metadata_summary: r.metadata_summary,
+    }))
+    const total = count ?? 0
+    return {
+      data: list,
+      total,
+      page: Number(page),
+      page_size: Number(page_size),
+      total_pages: Math.ceil(total / Number(page_size)) || 1,
+    }
+  }
+
   const {
     search = '',
     actor = '',
@@ -309,6 +377,33 @@ export async function listAuditLogs(params = {}) {
  * ip_address?, user_agent?, source_portal?, changes?, metadata (sanitizada), correlation_id?
  */
 export async function getAuditLogEvent(id) {
+  if (USE_SUPABASE && supabase) {
+    const { data, error } = await supabase.from('audit_logs').select('*').eq('id', id).single()
+    if (error || !data) {
+      const err = new Error('Evento de auditoria não encontrado')
+      err.status = 404
+      throw err
+    }
+    return {
+      id: data.id,
+      occurred_at: data.occurred_at,
+      actor_user_id: data.actor_user_id,
+      actor_name: data.actor_name,
+      actor_email: data.actor_email,
+      event_type: data.event_type,
+      entity_type: data.entity_type,
+      entity_id: data.entity_id,
+      school_id: data.school_id,
+      franchisor_id: data.franchisor_id,
+      ip_address: data.ip_address,
+      metadata_summary: data.metadata_summary,
+      user_agent: data.user_agent,
+      source_portal: data.source_portal,
+      correlation_id: data.correlation_id,
+      metadata: data.metadata || {},
+      changes: data.metadata || undefined,
+    }
+  }
   await new Promise((r) => setTimeout(r, 400))
   const event = MOCK_AUDIT_EVENTS.find((e) => String(e.id) === String(id))
   if (!event) {
